@@ -1,0 +1,50 @@
+// Brand new project with no documents
+
+
+Start this project using the repository’s `.agents` playbook.
+
+First, read:
+- `.agents/AGENTS.md`
+- `.agents/workflow/intake.md`
+- `.agents/project/where-docs-go.md`
+- `.agents/rules/`
+- `.agents/architecture/`
+- `.agents/testing/`
+
+Project idea: [describe the product]
+
+Create and complete `docs/product/brief.md` before implementing code. Then inspect the repository and propose a practical foundation plan covering architecture, repository structure, dependencies, security, testing, and delivery.
+
+Create `docs/tasks/project-foundation.md` with the plan and acceptance criteria. State assumptions and ask only questions that block a material decision.
+
+After the plan is ready, implement the project foundation in small, verified steps. Follow the memory rules: maintain `.agents/memory/short_term_memory.md` for active work and `.agents/memory/long_term_memory.md` for confirmed, durable decisions. Do not store secrets.
+
+Keep all changes scoped. Run relevant checks and report exactly what was verified.
+
+/*
+
+Replace [describe the product] with something specific, for example: “A web platform where small businesses can create, schedule, and analyze social-media posts.”
+For an existing codebase, change “implement the project foundation” to: “analyze the existing architecture first, document it in docs/architecture/, then propose the smallest safe improvement plan.”
+
+*/
+
+
+// Brand new project with documents
+
+Read the repository’s `.agents/AGENTS.md`, all files in `docs/`, and the current project structure.
+
+Do not edit, create, delete, or implement anything yet.
+
+Return:
+1. A concise inventory of the existing project documents.
+2. The project’s stated goal, scope, users, architecture, requirements, and constraints.
+3. Any contradictions, missing information, or unclear decisions.
+4. The recommended first development phase.
+5. A small, ordered implementation plan with acceptance criteria and testing approach.
+
+Use the existing documents as the project source of truth. Ask only questions that are necessary before development can safely begin.
+
+
+/*
+After you review the agent’s report and approve its plan, tell it: “Proceed with Phase 1 using the approved plan. Follow .agents rules, make small verified changes, and update short-term and long-term memory only when appropriate.”
+*/
