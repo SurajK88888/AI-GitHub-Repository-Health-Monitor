@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from app.enums import DetectionSource, FindingCategory, FindingSeverity, FindingStatus
 from app.schemas.common import APIModel, PaginatedResponse
@@ -18,7 +19,7 @@ class FindingResponse(APIModel):
     severity: FindingSeverity
     title: str
     description: str
-    evidence: dict | None = None
+    evidence: dict[str, Any] | None = None
     detection_source: DetectionSource
     status: FindingStatus
     fingerprint: str

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -42,7 +43,7 @@ class Finding(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     severity: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     title: Mapped[str] = mapped_column(String(512), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
-    evidence: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    evidence: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     detection_source: Mapped[str] = mapped_column(
         String(20), nullable=False, default=DetectionSource.PROGRAMMATIC.value
     )

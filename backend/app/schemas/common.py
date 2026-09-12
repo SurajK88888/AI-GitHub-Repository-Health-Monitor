@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -17,7 +18,7 @@ class APIModel(BaseModel):
 class PaginatedResponse(APIModel):
     """Standard paginated collection wrapper."""
 
-    items: list  # override in concrete schemas
+    items: list[Any]  # override in concrete schemas
     page: int = Field(ge=1)
     page_size: int = Field(ge=1, le=200)
     total: int = Field(ge=0)
@@ -29,7 +30,7 @@ class ErrorResponse(APIModel):
 
     code: str
     message: str
-    details: dict | None = None
+    details: dict[str, Any] | None = None
     request_id: uuid.UUID | None = None
 
 

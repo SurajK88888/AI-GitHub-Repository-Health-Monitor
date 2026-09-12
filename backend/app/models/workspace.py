@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
-from sqlalchemy import ForeignKey, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.enums import WorkspaceRole
-from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin, utc_now
 
 
 class Workspace(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -70,11 +71,7 @@ class WorkspaceMember(UUIDPrimaryKeyMixin, Base):
         String(20), nullable=False, default=WorkspaceRole.MEMBER.value
     )
 
-    from sqlalchemy import DateTime
-
-    from app.models.base import utc_now
-
-    created_at: Mapped[__import__("datetime").datetime] = mapped_column(
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, nullable=False
     )
 

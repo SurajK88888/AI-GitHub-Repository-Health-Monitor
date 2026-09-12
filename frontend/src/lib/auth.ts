@@ -29,7 +29,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async session({ session, token }) {
       // Expose access token to server components only — never to the browser
-      (session as any).accessToken = token.accessToken;
+      const sessionWithAccessToken = session as typeof session & {
+        accessToken?: string;
+      };
+      sessionWithAccessToken.accessToken =
+        typeof token.accessToken === "string" ? token.accessToken : undefined;
       return session;
     },
   },

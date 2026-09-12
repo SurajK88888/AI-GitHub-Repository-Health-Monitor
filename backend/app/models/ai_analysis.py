@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import DateTime, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -41,7 +42,7 @@ class AIAnalysis(UUIDPrimaryKeyMixin, Base):
     model: Mapped[str] = mapped_column(String(100), nullable=False)
     prompt_version: Mapped[str] = mapped_column(String(20), nullable=False)
     input_reference: Mapped[str | None] = mapped_column(Text, nullable=True)
-    result: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    result: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default=AIAnalysisStatus.PENDING.value
     )

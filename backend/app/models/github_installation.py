@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
 from sqlalchemy import BigInteger, ForeignKey, String
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -35,7 +36,7 @@ class GitHubInstallation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     account_type: Mapped[str] = mapped_column(
         String(20), nullable=False, default=AccountType.USER.value
     )
-    permissions_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    permissions_snapshot: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default=InstallationStatus.ACTIVE.value, index=True
     )

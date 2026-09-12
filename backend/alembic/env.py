@@ -5,11 +5,11 @@ from __future__ import annotations
 import asyncio
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy.ext.asyncio import create_async_engine
 
 # Import models so their metadata is registered with Base
 import app.models  # noqa: F401
+from alembic import context
 from app.config import get_settings
 from app.models.base import Base
 

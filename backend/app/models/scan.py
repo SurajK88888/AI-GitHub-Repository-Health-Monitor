@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import DateTime, Float, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -74,7 +75,7 @@ class ScanMetric(UUIDPrimaryKeyMixin, Base):
     metric_name: Mapped[str] = mapped_column(String(255), nullable=False)
     metric_value: Mapped[float] = mapped_column(Float, nullable=False)
     metric_unit: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB, nullable=True)
+    metadata_: Mapped[dict[str, Any] | None] = mapped_column("metadata", JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, nullable=False
     )
