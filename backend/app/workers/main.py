@@ -5,6 +5,8 @@ Run with:  python -m app.workers.main
 
 from __future__ import annotations
 
+from typing import Any
+
 import arq
 from arq.connections import RedisSettings
 
@@ -16,7 +18,7 @@ settings = get_settings()
 class WorkerSettings:
     """ARQ worker configuration."""
 
-    functions: list = []  # job functions registered in later phases
+    functions: list[Any] = []  # job functions registered in later phases
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     max_jobs = 10
     job_timeout = 300  # 5 minutes per job

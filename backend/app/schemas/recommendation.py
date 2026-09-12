@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from pydantic import Field
 
@@ -13,7 +14,7 @@ from app.schemas.common import APIModel, PaginatedResponse
 
 class RecommendedActionSchema(APIModel):
     action_type: str
-    parameters: dict = Field(default_factory=dict)
+    parameters: dict[str, Any] = Field(default_factory=dict)
 
 
 class RecommendationResponse(APIModel):

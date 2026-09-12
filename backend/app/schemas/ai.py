@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from app.enums import AIAnalysisStatus, AIAnalysisType
 from app.schemas.common import APIModel
@@ -15,7 +16,7 @@ class AIAnalysisResultSchema(APIModel):
     summary: str | None = None
     key_risks: list[str] = []
     recommendations: list[str] = []
-    raw: dict | None = None
+    raw: dict[str, Any] | None = None
 
 
 class AIAnalysisResponse(APIModel):
