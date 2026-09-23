@@ -11,7 +11,7 @@
       "eslint --fix"
     ],
     "backend/**/*.py": [
-      "ruff check --fix"
+      "python -m ruff check --fix"
     ]
   }
 }
