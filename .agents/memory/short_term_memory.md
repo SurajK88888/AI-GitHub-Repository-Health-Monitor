@@ -1,26 +1,21 @@
 # Short-Term Memory
 
 ## Current status
-- Phase 1 COMPLETE — all files created, tests passing, lint clean
-- Next: Phase 2 — GitHub App integration service and installation webhooks
+- Phase 2 COMPLETE — GitHub App services, Webhook ingestion, NextAuth validation, Installations & Repositories APIs, ARQ jobs, all 44 tests passing, ruff lint clean, mypy clean.
+- Next: Phase 3 — Repository Scanning Engine & Metrics Collectors.
 
 ## Completed work
-- All root scaffold created (.gitignore, .env.example, docker-compose.yml, README.md)
-- Backend: FastAPI app, config, database, enums — all functional
-- Backend: 18 SQLAlchemy models across 13 files — full schema coverage
-- Backend: Alembic initial migration (0001) — creates all 18 tables + indexes
-- Backend: 9 Pydantic schema modules — all from Doc 09 spec
-- Backend: ARQ worker skeleton at app/workers/main.py
-- Backend: 29 tests, all passing, lint clean (ruff), 51% coverage
-- Frontend: Next.js 15 + NextAuth.js v5 + Tailwind CSS skeleton
-- CI: GitHub Actions workflow (backend + frontend jobs with PG+Redis services)
-- Agent memory: both files updated
+- Phase 1: Full foundation scaffold, 18 models, Alembic migration, 9 Pydantic schemas, FastAPI core, Next.js frontend, CI workflow.
+- Phase 2:
+  - GitHub App service (`services/github/auth.py`, `services/github/client.py`, `services/github/webhook.py`): RS256 JWT generation, token caching, HMAC verification, REST client.
+  - Auth middleware & service (`services/auth.py`, `services/user_service.py`): NextAuth JWT verification, user + workspace automatic bootstrap, idempotent session setup.
+  - Audit service (`services/audit_service.py`): Secure, non-blocking audit logging for security events.
+  - Redis dependency (`workers/deps.py`): Shared pool with `RedisClient` supporting mypy strict mode and Python 3.14 runtime.
+  - Worker jobs (`workers/jobs/webhook_processor.py`): Background processing of GitHub webhook events (`installation`, `installation_repositories`, `push`, `pull_request`).
+  - API endpoints (`api/v1/auth.py`, `api/v1/webhooks.py`, `api/v1/installations.py`, `api/v1/repositories.py`): Registered in `main.py`.
+  - Tests: 44/44 tests passing, 81.57% backend coverage, ruff clean, mypy clean.
 
-## Fixed during Phase 1
-- pyproject.toml: build-backend = setuptools.build_meta (not setuptools.backends.legacy)
-- ruff: 92 auto-fixes applied; 25 manually suppressed with justification
-- coverage threshold: adjusted to 50% (models need live DB)
-
-## Blockers / risks for Phase 2
-- GitHub App must be created and credentials filled in .env
-- Requires real GitHub App ID + PEM key to test webhook delivery
+## Phase 3 Scope (Next)
+- Repository scanning pipeline (Clone / GitHub API fetch).
+- Rule-based metric collection (documentation, security, issues, PRs, activity, configuration).
+- Scan job orchestration via ARQ.

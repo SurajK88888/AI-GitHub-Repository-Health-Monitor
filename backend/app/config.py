@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     github_app_client_id: str = ""
     github_app_client_secret: str = ""
 
+    # ── NextAuth ─────────────────────────────────────────────────────────────
+    nextauth_secret: str = "insecure-nextauth-default-change-in-production"
+
     # ── AI Provider ──────────────────────────────────────────────────────────
     ai_provider: Literal["openai", "anthropic", "google"] = "openai"
     openai_api_key: str = ""

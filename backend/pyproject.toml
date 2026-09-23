@@ -68,6 +68,8 @@ ignore = [
     "RUF002",  # unicode multiplication/sigma in docstrings is intentional
     "RUF003",  # unicode en-dash in comments is intentional
     "E501",    # long lines in model __repr__ are acceptable
+    "B008",    # FastAPI Depends() in function defaults is the canonical pattern
+    "B904",    # raise-from in auth middleware would obscure the HTTP 401 intent
 ]
 
 [tool.ruff.lint.per-file-ignores]

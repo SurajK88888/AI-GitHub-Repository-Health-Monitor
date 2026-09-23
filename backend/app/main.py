@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import health
+from app.api.v1 import auth, health, installations, repositories, webhooks
 from app.config import get_settings
 
 settings = get_settings()
@@ -30,7 +30,12 @@ def create_app() -> FastAPI:
     )
 
     # ── Routers ──────────────────────────────────────────────────────────────
+    _prefix = "/api/v1"
     application.include_router(health.router, tags=["Health"])
+    application.include_router(auth.router, prefix=_prefix)
+    application.include_router(webhooks.router, prefix=_prefix)
+    application.include_router(installations.router, prefix=_prefix)
+    application.include_router(repositories.router, prefix=_prefix)
 
     return application
 

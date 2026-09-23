@@ -15,6 +15,10 @@ Use for confirmed, durable project knowledge. Keep it concise; link to `docs/` f
 | 2026-09-11 | String enums stored as VARCHAR | Avoids PG ALTER TYPE on every new enum member | — |
 | 2026-09-11 | Alembic manual migration (0001) | DB-free initial migration; autogenerate available for future changes | — |
 | 2026-09-11 | pyproject.toml build-backend = setuptools.build_meta | setuptools.backends.legacy not available on installed setuptools | — |
+| 2026-09-20 | HMAC-SHA256 signature on raw bytes | Ensures tamper-proof webhook verification before parsing JSON | — |
+| 2026-09-20 | Webhook idempotency in Redis | 24-hour delivery ID cache prevents duplicate event processing | — |
+| 2026-09-20 | GitHub App token cache margin | Installation access tokens refreshed 60 seconds before expiry | — |
+| 2026-09-20 | Lazy user/workspace bootstrap | POST /api/v1/auth/session initializes DB records on first login | — |
 
 ## Invariants
 - Weights in ScoringConfiguration must sum to 100 — enforced at schema and DB level
