@@ -23,6 +23,10 @@ Use for confirmed, durable project knowledge. Keep it concise; link to `docs/` f
 | 2026-09-24 | Finding dedup by SHA-256 fingerprint | fingerprint = SHA-256("category:rule_id:resource"); UniqueConstraint on (repo, fingerprint) | — |
 | 2026-09-24 | GitHubClient extended with owner/repo + get_file_content() | Scanner needs file content without a separate client; backward-compatible (owner/repo default to "") | — |
 | 2026-09-24 | ARQ job uses async generator .aclose() instead of break-in-finally | break inside finally silences exceptions (B012 lint rule); generator .aclose() is correct | — |
+| 2026-09-26 | Deterministic health scoring engine is pure function | `calculate_health_score` is side-effect-free, easily testable without DB | Doc 04 |
+| 2026-09-26 | Hard safety caps on critical findings | Critical security finding caps overall score at 50; per-category critical caps at 30, high at 60 | Doc 04 |
+| 2026-09-26 | Fault-tolerant AI analysis pipeline | AI provider failure/timeout records status as SKIPPED/FAILED and never blocks scoring or scan completion | Doc 04, 05 |
+| 2026-09-26 | Two-layer prompt sanitization | Prompt only includes sanitized finding metadata, never raw evidence blobs or source code | Doc 01, 04 |
 
 ## Invariants
 - Weights in ScoringConfiguration must sum to 100 — enforced at schema and DB level

@@ -1,8 +1,8 @@
 # Short-Term Memory
 
 ## Current status
-- Phase 3 COMPLETE — Repository Scanning Engine, 8 Metric Collectors, Scan Runner, Findings API, Scans API — 94/94 tests passing, ruff clean, 79.41% coverage.
-- Next: Phase 4 — AI Analysis + Scoring Engine (HealthScore computation, Gemini integration, Recommendations API).
+- Phase 4 COMPLETE — Health Scoring Engine, Gemini AI Analysis, Worker Pipeline, Health Scores API, Recommendations API — 174/174 tests passing, ruff clean, mypy clean, 79.02% coverage.
+- Next: Phase 5 — Automation & Remediation (AI-driven PR creation, branch management, notification dispatch, scheduled monitoring).
 
 ## Completed work
 - Phase 1: Full foundation scaffold, 18 models, Alembic migration, 9 Pydantic schemas, FastAPI core, Next.js frontend, CI workflow.
@@ -24,3 +24,21 @@
   - API: `POST/GET /repositories/{id}/scans`, `GET /scans/{id}`, `GET /scans/{id}/metrics`, `GET /repositories/{id}/findings`, `GET /findings/{id}`.
   - Tests: 94/94 passing, 79.41% coverage, ruff clean.
   - Also extended `GitHubClient` with `owner`/`repo` params and `get_file_content()`.
+- Phase 4:
+  - Scoring Service Layer (`services/scoring/config_service.py`, `services/scoring/engine.py`):
+    - 8-category deterministic scoring with Doc 04 default weights totaling 100%.
+    - Safety caps: CRITICAL finding in category caps it at 30; HIGH caps at 60; CRITICAL SECURITY finding caps overall score at 50.
+    - Score bands: EXCELLENT (90-100), GOOD (75-89), NEEDS_ATTENTION (60-74), POOR (40-59), CRITICAL (0-39).
+    - Workspace-level versioned configurations with immutability for reproducible historical scores.
+  - AI Analysis Service Layer (`services/ai/prompts.py`, `services/ai/client.py`, `services/ai/analyzer.py`):
+    - Sanitized prompt templates (v1.0.0) — never send raw source code, tokens, or secrets.
+    - Async Gemini REST client using `httpx` with graceful degradation if API key is not configured.
+    - `run_ai_analysis`: non-blocking, fault-tolerant (AI failure marks `AIAnalysis` as SKIPPED/FAILED and never crashes scans/scoring), creates `Recommendation` records.
+  - Worker Pipeline (`workers/jobs/scan_job.py`):
+    - Calls `calculate_and_save_health_score` then `run_ai_analysis` after a successful scan.
+  - API Endpoints (`api/v1/health_scores.py`, `api/v1/recommendations.py`):
+    - `GET /repositories/{id}/health`, `GET /repositories/{id}/health/history`, `GET /workspaces/scoring-config`, `POST /workspaces/scoring-config`.
+    - `GET /repositories/{id}/recommendations`, `GET /recommendations/{id}`, `POST /recommendations/{id}/approve` (creates `AIAction` audit trail).
+    - Registered in `main.py`.
+  - Tests: 174/174 tests passing, 79.02% coverage, ruff clean, mypy clean.
+

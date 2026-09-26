@@ -2,6 +2,9 @@
 
 This is the bridge between the ARQ queue and the scanner service layer.
 It fetches GitHub data, builds a ScanContext, and delegates to runner.run_scan().
+After a successful scan it triggers:
+  1. Deterministic health scoring (calculate_and_save_health_score)
+  2. AI analysis (run_ai_analysis) — non-blocking, failure safe
 """
 
 from __future__ import annotations
@@ -14,9 +17,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.repository import Repository
 from app.models.scan import Scan
+from app.services.ai.analyzer import run_ai_analysis
 from app.services.github.client import GitHubClient
 from app.services.scanner.github_fetcher import build_scan_context
 from app.services.scanner.runner import run_scan
+from app.services.scoring.engine import calculate_and_save_health_score
 from app.workers.deps import get_redis
 
 logger = logging.getLogger(__name__)
@@ -52,7 +57,8 @@ async def run_repository_scan(ctx: dict[str, Any], scan_id: str) -> None:
 
 
 async def _execute_scan(scan_uuid: uuid.UUID, db: AsyncSession) -> None:
-    """Inner scan execution — loads repository, builds context, runs scan."""
+    """Inner scan execution — loads repository, builds context, runs scan,
+    then triggers scoring and AI analysis."""
     from datetime import UTC, datetime
 
     from sqlalchemy import select
@@ -91,6 +97,7 @@ async def _execute_scan(scan_uuid: uuid.UUID, db: AsyncSession) -> None:
     # ── Build GitHub client and run scan ───────────────────────────────────
     redis_gen = get_redis()
     redis = await redis_gen.__anext__()
+    scan_succeeded = False
     try:
         async with GitHubClient(
             installation_id=installation.github_installation_id,
@@ -101,6 +108,7 @@ async def _execute_scan(scan_uuid: uuid.UUID, db: AsyncSession) -> None:
             scan_ctx = await build_scan_context(gh_client)
 
         await run_scan(scan_uuid, scan_ctx, db)
+        scan_succeeded = True
     except Exception:
         logger.exception("Failed to fetch data or run scan %s", scan_uuid)
         if scan.status != "FAILED":
@@ -113,3 +121,15 @@ async def _execute_scan(scan_uuid: uuid.UUID, db: AsyncSession) -> None:
             await redis_gen.aclose()
         except Exception:
             logger.debug("Redis generator close failed for scan %s", scan_uuid)
+
+    # ── Phase 4: scoring + AI analysis (only if scan succeeded) ───────────
+    if scan_succeeded:
+        # Deterministic scoring — must succeed for the scan to be meaningful
+        health_score = await calculate_and_save_health_score(scan_uuid, db)
+        if health_score is None:
+            logger.error("Health scoring failed for scan %s", scan_uuid)
+            return
+
+        # AI analysis — fault-tolerant, failure does NOT block anything
+        await run_ai_analysis(scan_uuid, db)
+
