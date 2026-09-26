@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from pydantic import Field
 
@@ -34,3 +35,18 @@ class ScanResponse(APIModel):
 
 class PaginatedScanResponse(PaginatedResponse):
     items: list[ScanResponse] = []
+
+
+class ScanMetricResponse(APIModel):
+    """A single metric produced by a scanner collector."""
+
+    id: uuid.UUID
+    scan_id: uuid.UUID
+    category: str
+    metric_name: str
+    metric_value: float
+    metric_unit: str | None = None
+    extra: dict[str, Any] | None = None
+
+    model_config = APIModel.model_config
+

@@ -19,6 +19,10 @@ Use for confirmed, durable project knowledge. Keep it concise; link to `docs/` f
 | 2026-09-20 | Webhook idempotency in Redis | 24-hour delivery ID cache prevents duplicate event processing | — |
 | 2026-09-20 | GitHub App token cache margin | Installation access tokens refreshed 60 seconds before expiry | — |
 | 2026-09-20 | Lazy user/workspace bootstrap | POST /api/v1/auth/session initializes DB records on first login | — |
+| 2026-09-24 | Collectors are pure functions (no I/O) | ScanContext pre-loaded; collectors deterministic for same input | — |
+| 2026-09-24 | Finding dedup by SHA-256 fingerprint | fingerprint = SHA-256("category:rule_id:resource"); UniqueConstraint on (repo, fingerprint) | — |
+| 2026-09-24 | GitHubClient extended with owner/repo + get_file_content() | Scanner needs file content without a separate client; backward-compatible (owner/repo default to "") | — |
+| 2026-09-24 | ARQ job uses async generator .aclose() instead of break-in-finally | break inside finally silences exceptions (B012 lint rule); generator .aclose() is correct | — |
 
 ## Invariants
 - Weights in ScoringConfiguration must sum to 100 — enforced at schema and DB level
