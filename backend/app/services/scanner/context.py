@@ -76,14 +76,14 @@ class ScanContext:
     file_contents: dict[str, str]
 
     # ── Activity data ─────────────────────────────────────────────────────────
-    recent_commits: list[CommitSummary]   # last 30 days
+    recent_commits: list[CommitSummary]  # last 30 days
 
     # ── Issue & PR data ───────────────────────────────────────────────────────
     open_issues: list[IssueSummary]
     open_pull_requests: list[PullRequestSummary]
 
     # ── Optional: GitHub security info ───────────────────────────────────────
-    has_vulnerability_alerts: bool | None = None   # None = not accessible
+    has_vulnerability_alerts: bool | None = None  # None = not accessible
 
     def has_file(self, *names: str) -> bool:
         """Return True if any of *names* exist anywhere in the tree."""
@@ -133,10 +133,10 @@ class FindingData:
     """
 
     category: str
-    severity: str          # FindingSeverity enum value
+    severity: str  # FindingSeverity enum value
     title: str
     description: str
-    fingerprint: str       # SHA-256 hex of "category:rule_id:resource"
+    fingerprint: str  # SHA-256 hex of "category:rule_id:resource"
     evidence: dict[str, Any] | None = None
     detection_source: str = "PROGRAMMATIC"
 

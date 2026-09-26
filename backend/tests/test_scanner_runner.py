@@ -48,8 +48,14 @@ class TestRunCollectors:
         result = _run_collectors(ctx)
         categories = {m.category for m in result.metrics}
         expected = {
-            "DOCUMENTATION", "SECURITY", "CODE_QUALITY", "DEPENDENCIES",
-            "ISSUES", "PULL_REQUESTS", "ACTIVITY", "CONFIGURATION",
+            "DOCUMENTATION",
+            "SECURITY",
+            "CODE_QUALITY",
+            "DEPENDENCIES",
+            "ISSUES",
+            "PULL_REQUESTS",
+            "ACTIVITY",
+            "CONFIGURATION",
         }
         assert expected.issubset(categories)
 

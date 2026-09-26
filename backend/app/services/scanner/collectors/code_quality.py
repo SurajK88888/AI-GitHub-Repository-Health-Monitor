@@ -20,25 +20,51 @@ _CAT = "CODE_QUALITY"
 
 # Linter/formatter configuration files
 _LINTER_CONFIGS = [
-    ".eslintrc", ".eslintrc.js", ".eslintrc.json", ".eslintrc.yml",
-    ".eslintrc.yaml", "eslint.config.js", "eslint.config.mjs",
-    ".prettierrc", ".prettierrc.json", ".prettierrc.yml", "prettier.config.js",
-    "pyproject.toml",   # also covers ruff, black, mypy when present
-    ".flake8", "setup.cfg",
+    ".eslintrc",
+    ".eslintrc.js",
+    ".eslintrc.json",
+    ".eslintrc.yml",
+    ".eslintrc.yaml",
+    "eslint.config.js",
+    "eslint.config.mjs",
+    ".prettierrc",
+    ".prettierrc.json",
+    ".prettierrc.yml",
+    "prettier.config.js",
+    "pyproject.toml",  # also covers ruff, black, mypy when present
+    ".flake8",
+    "setup.cfg",
     ".rubocop.yml",
-    "golangci-lint.yml", ".golangci.yml",
+    "golangci-lint.yml",
+    ".golangci.yml",
     "sonar-project.properties",
-    ".stylelintrc", ".stylelintrc.json",
+    ".stylelintrc",
+    ".stylelintrc.json",
 ]
 
 # Test directory and file patterns
 _TEST_INDICATORS = [
-    "test/", "tests/", "__tests__/", "spec/", "specs/",
-    "test.js", "test.ts", "spec.js", "spec.ts",
-    ".test.js", ".test.ts", ".spec.js", ".spec.ts",
-    "test_", "_test.go", "_test.py",
-    "conftest.py", "jest.config.js", "jest.config.ts",
-    "vitest.config.ts", "pytest.ini",
+    "test/",
+    "tests/",
+    "__tests__/",
+    "spec/",
+    "specs/",
+    "test.js",
+    "test.ts",
+    "spec.js",
+    "spec.ts",
+    ".test.js",
+    ".test.ts",
+    ".spec.js",
+    ".spec.ts",
+    "test_",
+    "_test.go",
+    "_test.py",
+    "conftest.py",
+    "jest.config.js",
+    "jest.config.ts",
+    "vitest.config.ts",
+    "pytest.ini",
 ]
 
 
@@ -60,7 +86,9 @@ class CodeQualityCollector(BaseCollector):
         # ── CI/CD workflows ───────────────────────────────────────────────
         ci_workflows = ctx.matching_paths(".github/workflows")
         has_ci = len(ci_workflows) > 0
-        result.metrics.append(MetricData(_CAT, "ci_workflow_count", float(len(ci_workflows)), "count"))
+        result.metrics.append(
+            MetricData(_CAT, "ci_workflow_count", float(len(ci_workflows)), "count")
+        )
         result.metrics.append(MetricData(_CAT, "has_ci", 1.0 if has_ci else 0.0, "bool"))
 
         if not has_ci:
@@ -111,7 +139,9 @@ class CodeQualityCollector(BaseCollector):
                 has_linter = True
                 break
 
-        result.metrics.append(MetricData(_CAT, "has_linter_config", 1.0 if has_linter else 0.0, "bool"))
+        result.metrics.append(
+            MetricData(_CAT, "has_linter_config", 1.0 if has_linter else 0.0, "bool")
+        )
         if not has_linter:
             score -= 15.0
             result.findings.append(

@@ -53,6 +53,7 @@ def _ctx(**overrides: object) -> ScanContext:
 # Documentation collector
 # ═════════════════════════════════════════════════════════════════════════════
 
+
 class TestDocumentationCollector:
     collector = DocumentationCollector()
 
@@ -108,6 +109,7 @@ class TestDocumentationCollector:
 # Security collector
 # ═════════════════════════════════════════════════════════════════════════════
 
+
 class TestSecurityCollector:
     collector = SecurityCollector()
 
@@ -153,6 +155,7 @@ class TestSecurityCollector:
 # Code Quality collector
 # ═════════════════════════════════════════════════════════════════════════════
 
+
 class TestCodeQualityCollector:
     collector = CodeQualityCollector()
 
@@ -193,6 +196,7 @@ class TestCodeQualityCollector:
 # Dependencies collector
 # ═════════════════════════════════════════════════════════════════════════════
 
+
 class TestDependenciesCollector:
     collector = DependenciesCollector()
 
@@ -221,6 +225,7 @@ class TestDependenciesCollector:
 # ═════════════════════════════════════════════════════════════════════════════
 # Issues collector
 # ═════════════════════════════════════════════════════════════════════════════
+
 
 class TestIssuesCollector:
     collector = IssuesCollector()
@@ -274,6 +279,7 @@ class TestIssuesCollector:
 # Pull Requests collector
 # ═════════════════════════════════════════════════════════════════════════════
 
+
 class TestPullRequestsCollector:
     collector = PullRequestsCollector()
 
@@ -325,6 +331,7 @@ class TestPullRequestsCollector:
 # Activity collector
 # ═════════════════════════════════════════════════════════════════════════════
 
+
 class TestActivityCollector:
     collector = ActivityCollector()
 
@@ -363,6 +370,7 @@ class TestActivityCollector:
 # ═════════════════════════════════════════════════════════════════════════════
 # Configuration collector
 # ═════════════════════════════════════════════════════════════════════════════
+
 
 class TestConfigurationCollector:
     collector = ConfigurationCollector()

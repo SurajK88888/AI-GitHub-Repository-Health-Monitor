@@ -35,12 +35,8 @@ class DocumentationCollector(BaseCollector):
         score = 100.0
 
         # ── README ────────────────────────────────────────────────────────
-        has_readme = ctx.has_file_in_root(
-            "readme.md", "readme.rst", "readme.txt", "readme"
-        )
-        result.metrics.append(
-            MetricData(_CAT, "has_readme", 1.0 if has_readme else 0.0, "bool")
-        )
+        has_readme = ctx.has_file_in_root("readme.md", "readme.rst", "readme.txt", "readme")
+        result.metrics.append(MetricData(_CAT, "has_readme", 1.0 if has_readme else 0.0, "bool"))
         if not has_readme:
             score -= 40.0
             result.findings.append(
@@ -57,9 +53,13 @@ class DocumentationCollector(BaseCollector):
                 )
             )
         else:
-            readme_content = ctx.get_content("readme.md", "readme.rst", "readme.txt", "readme") or ""
+            readme_content = (
+                ctx.get_content("readme.md", "readme.rst", "readme.txt", "readme") or ""
+            )
             readme_length = len(readme_content)
-            result.metrics.append(MetricData(_CAT, "readme_length_chars", float(readme_length), "chars"))
+            result.metrics.append(
+                MetricData(_CAT, "readme_length_chars", float(readme_length), "chars")
+            )
             if readme_length < 100:
                 score -= 15.0
                 result.findings.append(
@@ -120,7 +120,9 @@ class DocumentationCollector(BaseCollector):
         has_coc = ctx.has_file("code_of_conduct.md", "code_of_conduct") or ctx.has_file(
             ".github/code_of_conduct.md"
         )
-        result.metrics.append(MetricData(_CAT, "has_code_of_conduct", 1.0 if has_coc else 0.0, "bool"))
+        result.metrics.append(
+            MetricData(_CAT, "has_code_of_conduct", 1.0 if has_coc else 0.0, "bool")
+        )
         if not has_coc:
             result.findings.append(
                 FindingData(

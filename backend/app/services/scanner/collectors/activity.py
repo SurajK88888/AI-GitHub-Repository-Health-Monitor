@@ -17,8 +17,8 @@ from app.services.scanner.context import (
 )
 
 _CAT = "ACTIVITY"
-_INACTIVE_DAYS = 90        # flag if no commit for 90 days
-_LOW_ACTIVITY_DAYS = 30    # flag if no commit for 30 days
+_INACTIVE_DAYS = 90  # flag if no commit for 90 days
+_LOW_ACTIVITY_DAYS = 30  # flag if no commit for 30 days
 
 
 def _fp(rule_id: str, resource: str = "") -> str:
@@ -46,9 +46,7 @@ class ActivityCollector(BaseCollector):
         days_since_push: float | None = None
         if ctx.pushed_at:
             days_since_push = (now - ctx.pushed_at).total_seconds() / 86400
-            result.metrics.append(
-                MetricData(_CAT, "days_since_last_push", days_since_push, "days")
-            )
+            result.metrics.append(MetricData(_CAT, "days_since_last_push", days_since_push, "days"))
 
         # Days since last commit in window
         days_since_commit: float | None = None
@@ -69,8 +67,10 @@ class ActivityCollector(BaseCollector):
         )
 
         # ── Inactive repository ───────────────────────────────────────────
-        effective_days = days_since_commit if days_since_commit is not None else (
-            days_since_push if days_since_push is not None else None
+        effective_days = (
+            days_since_commit
+            if days_since_commit is not None
+            else (days_since_push if days_since_push is not None else None)
         )
 
         if effective_days is not None and effective_days > _INACTIVE_DAYS:
@@ -105,7 +105,11 @@ class ActivityCollector(BaseCollector):
             )
 
         # ── Very low commit volume ─────────────────────────────────────────
-        if commit_count_30d == 0 and effective_days is not None and effective_days <= _INACTIVE_DAYS:
+        if (
+            commit_count_30d == 0
+            and effective_days is not None
+            and effective_days <= _INACTIVE_DAYS
+        ):
             score -= 10.0
             result.findings.append(
                 FindingData(

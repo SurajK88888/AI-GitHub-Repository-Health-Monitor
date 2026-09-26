@@ -49,4 +49,3 @@ class ScanMetricResponse(APIModel):
     extra: dict[str, Any] | None = None
 
     model_config = APIModel.model_config
-
