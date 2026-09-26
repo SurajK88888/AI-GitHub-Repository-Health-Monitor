@@ -40,8 +40,14 @@ _MAX_FINDINGS_IN_PROMPT = 10
 _GEMINI_MODEL = "gemini-1.5-flash"
 _VALID_PRIORITIES = {"CRITICAL", "HIGH", "MEDIUM", "LOW"}
 _VALID_CATEGORIES = {
-    "SECURITY", "CODE_QUALITY", "DEPENDENCIES",
-    "DOCUMENTATION", "ISSUES", "PULL_REQUESTS", "ACTIVITY", "CONFIGURATION",
+    "SECURITY",
+    "CODE_QUALITY",
+    "DEPENDENCIES",
+    "DOCUMENTATION",
+    "ISSUES",
+    "PULL_REQUESTS",
+    "ACTIVITY",
+    "CONFIGURATION",
 }
 
 
@@ -208,9 +214,9 @@ async def run_ai_analysis(
             repo_full_name=repo.full_name,
             overall_score=health_score.overall_score,
             score_band=str(
-                __import__(
-                    "app.enums", fromlist=["ScoreBand"]
-                ).ScoreBand.for_score(health_score.overall_score).value
+                __import__("app.enums", fromlist=["ScoreBand"])
+                .ScoreBand.for_score(health_score.overall_score)
+                .value
             ),
             previous_score=previous_score,
             category_scores=categories,
@@ -225,9 +231,7 @@ async def run_ai_analysis(
         )
 
         # ── Parse recommendations ──────────────────────────────────────────
-        new_recommendations = _parse_recommendations(
-            ai_output, scan.repository_id, analysis.id
-        )
+        new_recommendations = _parse_recommendations(ai_output, scan.repository_id, analysis.id)
         for rec in new_recommendations:
             db.add(rec)
 

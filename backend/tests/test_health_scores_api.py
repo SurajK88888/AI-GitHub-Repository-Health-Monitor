@@ -54,10 +54,12 @@ def _mock_db_override(mock_db: AsyncMock):
 def _clear_db_override() -> None:
     from app.database import get_db
     from app.main import app
+
     app.dependency_overrides.pop(get_db, None)
 
 
 # ── Authentication ─────────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_get_health_unauthenticated_returns_401(client: AsyncClient) -> None:
@@ -81,6 +83,7 @@ async def test_get_scoring_config_unauthenticated_returns_401(client: AsyncClien
 
 # ── No workspace → 400 ────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_get_health_no_workspace_returns_400(client: AsyncClient) -> None:
     token = _make_token()  # no workspace_id
@@ -95,6 +98,7 @@ async def test_get_health_no_workspace_returns_400(client: AsyncClient) -> None:
 
 
 # ── Repository not found → 404 ────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_get_health_unknown_repo_returns_404(client: AsyncClient) -> None:
@@ -123,6 +127,7 @@ async def test_get_health_unknown_repo_returns_404(client: AsyncClient) -> None:
 
 
 # ── No health score yet → 404 ─────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_get_health_no_score_returns_404(client: AsyncClient) -> None:
@@ -161,6 +166,7 @@ async def test_get_health_no_score_returns_404(client: AsyncClient) -> None:
 
 
 # ── GET /health → 200 ─────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_get_health_returns_200_with_structure(client: AsyncClient) -> None:
@@ -237,6 +243,7 @@ async def test_get_health_returns_200_with_structure(client: AsyncClient) -> Non
 
 # ── GET /health/history → 200 paginated ───────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_get_health_history_returns_200(client: AsyncClient) -> None:
     workspace_id = uuid.uuid4()
@@ -283,6 +290,7 @@ async def test_get_health_history_returns_200(client: AsyncClient) -> None:
 
 # ── GET /workspaces/scoring-config → 200 ──────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_get_scoring_config_returns_200(client: AsyncClient) -> None:
     workspace_id = uuid.uuid4()
@@ -321,6 +329,7 @@ async def test_get_scoring_config_returns_200(client: AsyncClient) -> None:
 
 # ── POST /workspaces/scoring-config → 201 ─────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_post_scoring_config_returns_201(client: AsyncClient) -> None:
     workspace_id = uuid.uuid4()
@@ -335,9 +344,7 @@ async def test_post_scoring_config_returns_201(client: AsyncClient) -> None:
     mock_config.name = "Custom Config"
     mock_config.is_default = True
     mock_config.version = 2
-    mock_config.weights = [
-        MagicMock(category=k, weight=v) for k, v in DEFAULT_WEIGHTS.items()
-    ]
+    mock_config.weights = [MagicMock(category=k, weight=v) for k, v in DEFAULT_WEIGHTS.items()]
     mock_config.created_at = datetime.now(UTC)
 
     with patch(
@@ -364,6 +371,7 @@ async def test_post_scoring_config_returns_201(client: AsyncClient) -> None:
 
 
 # ── POST /workspaces/scoring-config invalid weights → 422 ─────────────────────
+
 
 @pytest.mark.asyncio
 async def test_post_scoring_config_invalid_weights_returns_422(

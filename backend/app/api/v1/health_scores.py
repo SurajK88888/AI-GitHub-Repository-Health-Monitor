@@ -40,6 +40,7 @@ router = APIRouter(tags=["health-scores"])
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
+
 def _require_workspace(current_user: CurrentUser) -> UUID:
     """Return workspace_id or raise 400."""
     if not current_user.workspace_id:
@@ -50,9 +51,7 @@ def _require_workspace(current_user: CurrentUser) -> UUID:
     return current_user.workspace_id
 
 
-async def _get_repo_or_404(
-    db: AsyncSession, repository_id: UUID, workspace_id: UUID
-) -> Repository:
+async def _get_repo_or_404(db: AsyncSession, repository_id: UUID, workspace_id: UUID) -> Repository:
     """Return repository or 404 if not found / not owned by workspace."""
     result = await db.execute(
         select(Repository).where(
@@ -62,9 +61,7 @@ async def _get_repo_or_404(
     )
     repo = result.scalar_one_or_none()
     if repo is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Repository not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Repository not found")
     return repo
 
 
@@ -76,9 +73,7 @@ async def _build_health_score_response(
     """Assemble a ``HealthScoreResponse`` from ORM objects."""
     # Load categories
     cat_result = await db.execute(
-        select(HealthScoreCategory).where(
-            HealthScoreCategory.health_score_id == health_score.id
-        )
+        select(HealthScoreCategory).where(HealthScoreCategory.health_score_id == health_score.id)
     )
     categories = [
         CategoryScoreResponse(
@@ -90,9 +85,7 @@ async def _build_health_score_response(
         for c in cat_result.scalars().all()
     ]
 
-    prev_score_val: float | None = (
-        previous_score.overall_score if previous_score else None
-    )
+    prev_score_val: float | None = previous_score.overall_score if previous_score else None
     delta: float | None = (
         round(health_score.overall_score - prev_score_val, 2)
         if prev_score_val is not None
@@ -118,6 +111,7 @@ async def _build_health_score_response(
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
+
 
 @router.get(
     "/repositories/{repository_id}/health",
@@ -184,9 +178,7 @@ async def get_repository_health_history(
     base_query = select(HealthScore).where(HealthScore.repository_id == repository_id)
 
     # Total count
-    count_result = await db.execute(
-        select(func.count()).select_from(base_query.subquery())
-    )
+    count_result = await db.execute(select(func.count()).select_from(base_query.subquery()))
     total: int = count_result.scalar_one()
 
     offset = (page - 1) * page_size

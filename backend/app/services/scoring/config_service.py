@@ -75,9 +75,7 @@ async def get_or_create_default_config(
 
     await db.commit()
     await db.refresh(config, ["weights"])
-    logger.info(
-        "Created default scoring configuration v1 for workspace %s", workspace_id
-    )
+    logger.info("Created default scoring configuration v1 for workspace %s", workspace_id)
     return config
 
 

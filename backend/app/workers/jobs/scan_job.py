@@ -132,4 +132,3 @@ async def _execute_scan(scan_uuid: uuid.UUID, db: AsyncSession) -> None:
 
         # AI analysis — fault-tolerant, failure does NOT block anything
         await run_ai_analysis(scan_uuid, db)
-

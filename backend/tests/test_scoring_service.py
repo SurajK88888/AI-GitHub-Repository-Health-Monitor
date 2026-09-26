@@ -28,6 +28,7 @@ from app.services.scoring.engine import (
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
+
 def _make_metric(category: str, score: float) -> MagicMock:
     m = MagicMock()
     m.category = category
@@ -54,6 +55,7 @@ def _make_config_id() -> uuid.UUID:
 
 # ── Unit: DEFAULT_WEIGHTS ──────────────────────────────────────────────────────
 
+
 def test_default_weights_sum_to_100() -> None:
     total = sum(DEFAULT_WEIGHTS.values())
     assert abs(total - 100.0) < 0.01, f"Expected 100.0, got {total}"
@@ -66,13 +68,20 @@ def test_default_weights_all_non_negative() -> None:
 
 def test_default_weights_has_all_8_categories() -> None:
     expected = {
-        "SECURITY", "CODE_QUALITY", "DEPENDENCIES", "DOCUMENTATION",
-        "ISSUES", "PULL_REQUESTS", "ACTIVITY", "CONFIGURATION",
+        "SECURITY",
+        "CODE_QUALITY",
+        "DEPENDENCIES",
+        "DOCUMENTATION",
+        "ISSUES",
+        "PULL_REQUESTS",
+        "ACTIVITY",
+        "CONFIGURATION",
     }
     assert set(DEFAULT_WEIGHTS.keys()) == expected
 
 
 # ── Unit: _clamp ───────────────────────────────────────────────────────────────
+
 
 def test_clamp_within_bounds() -> None:
     assert _clamp(50.0) == 50.0
@@ -87,6 +96,7 @@ def test_clamp_above_100() -> None:
 
 
 # ── Unit: _derive_category_raw_score ──────────────────────────────────────────
+
 
 def test_derive_score_uses_metric_when_present() -> None:
     metrics = [_make_metric("SECURITY", 75.0), _make_metric("CODE_QUALITY", 60.0)]
@@ -105,6 +115,7 @@ def test_derive_score_clamps_above_100() -> None:
 
 
 # ── Unit: _apply_finding_caps ──────────────────────────────────────────────────
+
 
 def test_no_cap_when_no_relevant_findings() -> None:
     findings = [_make_finding("CODE_QUALITY", FindingSeverity.LOW.value)]
@@ -147,6 +158,7 @@ def test_findings_in_different_category_do_not_cap() -> None:
 
 
 # ── Integration: calculate_health_score ───────────────────────────────────────
+
 
 def _all_score_metrics(score: float) -> list[MagicMock]:
     return [_make_metric(cat, score) for cat in DEFAULT_WEIGHTS]

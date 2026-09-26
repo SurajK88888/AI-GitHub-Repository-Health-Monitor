@@ -26,6 +26,7 @@ from app.services.ai.prompts import PROMPT_VERSION, build_analysis_prompt
 
 # ── _sanitize_findings ─────────────────────────────────────────────────────────
 
+
 def _make_finding(
     severity: str = "HIGH",
     category: str = "SECURITY",
@@ -80,6 +81,7 @@ def test_sanitize_findings_empty_list() -> None:
 
 
 # ── build_analysis_prompt ──────────────────────────────────────────────────────
+
 
 def test_build_prompt_contains_repo_name() -> None:
     prompt = build_analysis_prompt(
@@ -163,6 +165,7 @@ def test_prompt_version_is_set() -> None:
 
 # ── _parse_recommendations ─────────────────────────────────────────────────────
 
+
 def test_parse_recommendations_valid_input() -> None:
     repo_id = uuid.uuid4()
     analysis_id = uuid.uuid4()
@@ -205,9 +208,7 @@ def test_parse_recommendations_skips_missing_title() -> None:
     repo_id = uuid.uuid4()
     analysis_id = uuid.uuid4()
     ai_output: dict[str, Any] = {
-        "recommendations": [
-            {"description": "No title here.", "priority": "LOW"}
-        ]
+        "recommendations": [{"description": "No title here.", "priority": "LOW"}]
     }
     recs = _parse_recommendations(ai_output, repo_id, analysis_id)
     assert len(recs) == 0
@@ -217,9 +218,7 @@ def test_parse_recommendations_skips_missing_description() -> None:
     repo_id = uuid.uuid4()
     analysis_id = uuid.uuid4()
     ai_output: dict[str, Any] = {
-        "recommendations": [
-            {"title": "No description", "priority": "LOW"}
-        ]
+        "recommendations": [{"title": "No description", "priority": "LOW"}]
     }
     recs = _parse_recommendations(ai_output, repo_id, analysis_id)
     assert len(recs) == 0
@@ -228,9 +227,7 @@ def test_parse_recommendations_skips_missing_description() -> None:
 def test_parse_recommendations_skips_non_dict_entries() -> None:
     repo_id = uuid.uuid4()
     analysis_id = uuid.uuid4()
-    ai_output: dict[str, Any] = {
-        "recommendations": ["not a dict", 42]
-    }
+    ai_output: dict[str, Any] = {"recommendations": ["not a dict", 42]}
     recs = _parse_recommendations(ai_output, repo_id, analysis_id)
     assert len(recs) == 0
 
@@ -246,6 +243,7 @@ def test_parse_recommendations_missing_key() -> None:
 
 
 # ── call_gemini client ──────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_call_gemini_raises_when_no_api_key() -> None:
@@ -291,7 +289,9 @@ async def test_call_gemini_raises_on_bad_json_response() -> None:
 
         mock_response = MagicMock()
         mock_response.raise_for_status = MagicMock()
-        mock_response.json.return_value = {"candidates": [{"content": {"parts": [{"text": "not json {{"}]}}]}
+        mock_response.json.return_value = {
+            "candidates": [{"content": {"parts": [{"text": "not json {{"}]}}]
+        }
 
         with patch("httpx.AsyncClient") as mock_client_cls:
             mock_client = AsyncMock()
@@ -316,9 +316,7 @@ async def test_call_gemini_success_returns_parsed_dict() -> None:
         mock_response = MagicMock()
         mock_response.raise_for_status = MagicMock()
         mock_response.json.return_value = {
-            "candidates": [
-                {"content": {"parts": [{"text": json.dumps(expected)}]}}
-            ]
+            "candidates": [{"content": {"parts": [{"text": json.dumps(expected)}]}}]
         }
 
         with patch("httpx.AsyncClient") as mock_client_cls:

@@ -36,6 +36,7 @@ router = APIRouter(tags=["recommendations"])
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
+
 def _require_workspace(current_user: CurrentUser) -> UUID:
     if not current_user.workspace_id:
         raise HTTPException(
@@ -45,9 +46,7 @@ def _require_workspace(current_user: CurrentUser) -> UUID:
     return current_user.workspace_id
 
 
-async def _get_repo_or_404(
-    db: AsyncSession, repository_id: UUID, workspace_id: UUID
-) -> Repository:
+async def _get_repo_or_404(db: AsyncSession, repository_id: UUID, workspace_id: UUID) -> Repository:
     result = await db.execute(
         select(Repository).where(
             Repository.id == repository_id,
@@ -56,9 +55,7 @@ async def _get_repo_or_404(
     )
     repo = result.scalar_one_or_none()
     if repo is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Repository not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Repository not found")
     return repo
 
 
@@ -69,9 +66,7 @@ def _rec_to_response(rec: Recommendation) -> RecommendationResponse:
     if raw_action:
         recommended_action = RecommendedActionSchema(
             action_type=str(raw_action.get("action_type", "REVIEW")),
-            parameters={
-                k: v for k, v in raw_action.items() if k != "action_type"
-            },
+            parameters={k: v for k, v in raw_action.items() if k != "action_type"},
         )
     return RecommendationResponse(
         id=rec.id,
@@ -87,6 +82,7 @@ def _rec_to_response(rec: Recommendation) -> RecommendationResponse:
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
+
 
 @router.get(
     "/repositories/{repository_id}/recommendations",
@@ -108,25 +104,19 @@ async def list_recommendations(
     workspace_id = _require_workspace(current_user)
     await _get_repo_or_404(db, repository_id, workspace_id)
 
-    base_query = select(Recommendation).where(
-        Recommendation.repository_id == repository_id
-    )
+    base_query = select(Recommendation).where(Recommendation.repository_id == repository_id)
     if priority is not None:
         base_query = base_query.where(Recommendation.priority == priority.value)
     if rec_status is not None:
         base_query = base_query.where(Recommendation.status == rec_status.value)
 
     # Count
-    count_result = await db.execute(
-        select(func.count()).select_from(base_query.subquery())
-    )
+    count_result = await db.execute(select(func.count()).select_from(base_query.subquery()))
     total: int = count_result.scalar_one()
 
     offset = (page - 1) * page_size
     rec_result = await db.execute(
-        base_query.order_by(Recommendation.created_at.desc())
-        .offset(offset)
-        .limit(page_size)
+        base_query.order_by(Recommendation.created_at.desc()).offset(offset).limit(page_size)
     )
     recs = list(rec_result.scalars().all())
 
@@ -204,8 +194,7 @@ async def approve_recommendation(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
-                f"Recommendation is already in status '{rec.status}' "
-                "and cannot be approved again."
+                f"Recommendation is already in status '{rec.status}' and cannot be approved again."
             ),
         )
 

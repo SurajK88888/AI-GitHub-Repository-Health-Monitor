@@ -55,6 +55,7 @@ def _mock_db_override(mock_db: AsyncMock) -> None:
 def _clear_db_override() -> None:
     from app.database import get_db
     from app.main import app
+
     app.dependency_overrides.pop(get_db, None)
 
 
@@ -78,6 +79,7 @@ def _make_recommendation(
 
 
 # ── Authentication guards ──────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_list_recommendations_unauthenticated_returns_401(
@@ -111,6 +113,7 @@ async def test_approve_recommendation_unauthenticated_returns_401(
 
 # ── No workspace → 400 ────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_list_recommendations_no_workspace_returns_400(
     client: AsyncClient,
@@ -127,6 +130,7 @@ async def test_list_recommendations_no_workspace_returns_400(
 
 
 # ── Repository not found → 404 ────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_list_recommendations_unknown_repo_returns_404(
@@ -156,6 +160,7 @@ async def test_list_recommendations_unknown_repo_returns_404(
 
 
 # ── List recommendations → 200 empty ──────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_list_recommendations_returns_200_empty(client: AsyncClient) -> None:
@@ -203,6 +208,7 @@ async def test_list_recommendations_returns_200_empty(client: AsyncClient) -> No
 
 # ── List recommendations with filters → 200 ───────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_list_recommendations_with_status_filter_returns_200(
     client: AsyncClient,
@@ -248,6 +254,7 @@ async def test_list_recommendations_with_status_filter_returns_200(
 
 # ── Get single recommendation → 200 ───────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_get_recommendation_returns_200(client: AsyncClient) -> None:
     workspace_id = uuid.uuid4()
@@ -289,6 +296,7 @@ async def test_get_recommendation_returns_200(client: AsyncClient) -> None:
 
 # ── Get recommendation → 404 ──────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_get_recommendation_not_found_returns_404(client: AsyncClient) -> None:
     workspace_id = uuid.uuid4()
@@ -313,6 +321,7 @@ async def test_get_recommendation_not_found_returns_404(client: AsyncClient) -> 
 
 
 # ── Approve recommendation → 200 ──────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_approve_pending_recommendation_returns_200(client: AsyncClient) -> None:
@@ -375,6 +384,7 @@ async def test_approve_pending_recommendation_returns_200(client: AsyncClient) -
 
 # ── Approve non-PENDING → 409 ─────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_approve_already_approved_returns_409(client: AsyncClient) -> None:
     workspace_id = uuid.uuid4()
@@ -411,6 +421,7 @@ async def test_approve_already_approved_returns_409(client: AsyncClient) -> None
 
 
 # ── Approve without confirmation → 400 ────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_approve_without_confirmation_returns_400(client: AsyncClient) -> None:

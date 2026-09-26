@@ -51,8 +51,8 @@ DEFAULT_WEIGHTS: dict[str, float] = {
 }
 
 # Safety cap constants (centralized — Doc 04 §5)
-_CAP_CRITICAL_CATEGORY: float = 30.0   # per-category cap when CRITICAL finding present
-_CAP_HIGH_CATEGORY: float = 60.0        # per-category cap when HIGH finding present
+_CAP_CRITICAL_CATEGORY: float = 30.0  # per-category cap when CRITICAL finding present
+_CAP_HIGH_CATEGORY: float = 60.0  # per-category cap when HIGH finding present
 _CAP_OVERALL_CRITICAL_SECURITY: float = 50.0  # overall cap when CRITICAL SECURITY active
 
 # Category score formula constants
@@ -64,10 +64,10 @@ class CategoryScoreResult:
     """Intermediate scoring result for a single category."""
 
     category: str
-    raw_score: float          # 0–100 before any cap
-    capped_score: float       # 0–100 after safety cap enforcement
-    weight: float             # weight (0–100) from config
-    weighted_score: float     # capped_score * weight / 100
+    raw_score: float  # 0–100 before any cap
+    capped_score: float  # 0–100 after safety cap enforcement
+    weight: float  # weight (0–100) from config
+    weighted_score: float  # capped_score * weight / 100
 
 
 @dataclasses.dataclass
@@ -216,21 +216,15 @@ async def calculate_and_save_health_score(
     # ── Load repository ────────────────────────────────────────────────────
     repo: Repository | None = await db.get(Repository, scan.repository_id)
     if repo is None:
-        logger.error(
-            "calculate_and_save_health_score: Repository %s not found", scan.repository_id
-        )
+        logger.error("calculate_and_save_health_score: Repository %s not found", scan.repository_id)
         return None
 
     # ── Get scoring configuration ──────────────────────────────────────────
-    config: ScoringConfiguration = await get_or_create_default_config(
-        repo.workspace_id, db
-    )
+    config: ScoringConfiguration = await get_or_create_default_config(repo.workspace_id, db)
     weights = {w.category: w.weight for w in config.weights}
 
     # ── Load metrics for this scan ─────────────────────────────────────────
-    metrics_result = await db.execute(
-        select(ScanMetric).where(ScanMetric.scan_id == scan_id)
-    )
+    metrics_result = await db.execute(select(ScanMetric).where(ScanMetric.scan_id == scan_id))
     metrics = list(metrics_result.scalars().all())
 
     # ── Load open findings for this repository ─────────────────────────────
@@ -264,9 +258,7 @@ async def calculate_and_save_health_score(
             configuration_version=config.version,
         )
     except Exception:
-        logger.exception(
-            "calculate_and_save_health_score: scoring failed for scan %s", scan_id
-        )
+        logger.exception("calculate_and_save_health_score: scoring failed for scan %s", scan_id)
         return None
 
     # ── Persist HealthScore ────────────────────────────────────────────────
@@ -298,9 +290,7 @@ async def calculate_and_save_health_score(
     await db.refresh(health_score)
 
     delta = (
-        round(result.overall_score - previous_overall, 2)
-        if previous_overall is not None
-        else None
+        round(result.overall_score - previous_overall, 2) if previous_overall is not None else None
     )
     logger.info(
         "Saved HealthScore %.2f (band=%s, delta=%s) for scan %s",

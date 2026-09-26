@@ -56,9 +56,7 @@ async def call_gemini(
     settings = get_settings()
     api_key = settings.google_ai_api_key
     if not api_key:
-        raise GeminiClientError(
-            "google_ai_api_key is not configured — AI analysis skipped"
-        )
+        raise GeminiClientError("google_ai_api_key is not configured — AI analysis skipped")
 
     url = f"{_GEMINI_BASE_URL}/{model}:generateContent"
     payload = {
@@ -82,20 +80,14 @@ async def call_gemini(
         response.raise_for_status()
     except httpx.HTTPStatusError as exc:
         # Log status only — never log body which may echo back sensitive data
-        raise GeminiClientError(
-            f"Gemini API returned HTTP {exc.response.status_code}"
-        ) from exc
+        raise GeminiClientError(f"Gemini API returned HTTP {exc.response.status_code}") from exc
     except httpx.RequestError as exc:
         raise GeminiClientError(f"Gemini request error: {type(exc).__name__}") from exc
 
     # Extract text from Gemini response envelope
     try:
         data = response.json()
-        text_output: str = (
-            data["candidates"][0]["content"]["parts"][0]["text"]
-        )
+        text_output: str = data["candidates"][0]["content"]["parts"][0]["text"]
         return dict(json.loads(text_output))
     except (KeyError, IndexError, json.JSONDecodeError) as exc:
-        raise GeminiClientError(
-            f"Could not parse Gemini response: {type(exc).__name__}"
-        ) from exc
+        raise GeminiClientError(f"Could not parse Gemini response: {type(exc).__name__}") from exc
