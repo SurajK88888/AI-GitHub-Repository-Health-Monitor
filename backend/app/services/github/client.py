@@ -32,9 +32,17 @@ class GitHubClient:
             repos = await gh.get("/installation/repositories")
     """
 
-    def __init__(self, installation_id: int, redis: RedisClient) -> None:
+    def __init__(
+        self,
+        installation_id: int,
+        redis: RedisClient,
+        owner: str = "",
+        repo: str = "",
+    ) -> None:
         self._installation_id = installation_id
         self._redis = redis
+        self._owner = owner
+        self._repo = repo
         self._client: httpx.AsyncClient | None = None
 
     async def __aenter__(self) -> GitHubClient:
@@ -69,6 +77,27 @@ class GitHubClient:
         response.raise_for_status()
         result: dict[str, Any] | list[Any] = response.json()
         return result
+
+    async def get_file_content(self, path: str) -> str | None:
+        """Fetch and decode the text content of a single file.
+
+        Returns ``None`` if the file is too large, binary, or not found.
+        """
+        assert self._client is not None, "Use GitHubClient as async context manager"
+        owner = self._owner
+        repo = self._repo
+        if not (owner and repo):
+            return None
+        try:
+            import base64
+
+            data = await self.get(f"/repos/{owner}/{repo}/contents/{path}")
+            if isinstance(data, dict) and data.get("encoding") == "base64":
+                raw: str = data.get("content", "")
+                return base64.b64decode(raw).decode("utf-8", errors="replace")
+        except Exception:
+            return None
+        return None
 
     async def list_installation_repositories(self) -> list[dict[str, Any]]:
         """Return all repositories accessible to this installation (auto-paginates)."""

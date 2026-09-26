@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import auth, health, installations, repositories, webhooks
+from app.api.v1 import auth, findings, health, installations, repositories, scans, webhooks
 from app.config import get_settings
 
 settings = get_settings()
@@ -36,6 +36,8 @@ def create_app() -> FastAPI:
     application.include_router(webhooks.router, prefix=_prefix)
     application.include_router(installations.router, prefix=_prefix)
     application.include_router(repositories.router, prefix=_prefix)
+    application.include_router(scans.router, prefix=_prefix)
+    application.include_router(findings.router, prefix=_prefix)
 
     return application
 

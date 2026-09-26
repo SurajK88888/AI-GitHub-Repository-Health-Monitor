@@ -1,0 +1,1 @@
+"""Scanner collectors package."""
