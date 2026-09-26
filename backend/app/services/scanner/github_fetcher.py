@@ -73,9 +73,7 @@ async def build_scan_context(client: GitHubClient) -> ScanContext:
         )
         tree_resp: dict[str, Any] = tree_raw if isinstance(tree_raw, dict) else {}
         file_paths = [
-            item["path"]
-            for item in tree_resp.get("tree", [])
-            if item.get("type") == "blob"
+            item["path"] for item in tree_resp.get("tree", []) if item.get("type") == "blob"
         ]
     except Exception:
         logger.warning("Could not fetch file tree for %s/%s", owner, repo)
@@ -101,9 +99,7 @@ async def build_scan_context(client: GitHubClient) -> ScanContext:
             f"/repos/{owner}/{repo}/commits",
             params={"since": since, "per_page": _MAX_COMMITS},
         )
-        commits_raw: list[dict[str, Any]] = (
-            commits_data if isinstance(commits_data, list) else []
-        )
+        commits_raw: list[dict[str, Any]] = commits_data if isinstance(commits_data, list) else []
         for c in commits_raw:
             committer = c.get("commit", {}).get("committer", {})
             author_login: str | None = None
@@ -128,9 +124,7 @@ async def build_scan_context(client: GitHubClient) -> ScanContext:
             f"/repos/{owner}/{repo}/issues",
             params={"state": "open", "per_page": _MAX_ISSUES},
         )
-        issues_raw: list[dict[str, Any]] = (
-            issues_data if isinstance(issues_data, list) else []
-        )
+        issues_raw: list[dict[str, Any]] = issues_data if isinstance(issues_data, list) else []
         for issue in issues_raw:
             if "pull_request" in issue:
                 continue  # skip PR items in issues list

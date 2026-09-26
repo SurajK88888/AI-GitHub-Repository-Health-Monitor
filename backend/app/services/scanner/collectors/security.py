@@ -101,9 +101,7 @@ class SecurityCollector(BaseCollector):
             )
 
         # ── Dependabot configuration ──────────────────────────────────────
-        has_dependabot = ctx.has_file(
-            ".github/dependabot.yml", ".github/dependabot.yaml"
-        )
+        has_dependabot = ctx.has_file(".github/dependabot.yml", ".github/dependabot.yaml")
         result.metrics.append(
             MetricData(_CAT, "has_dependabot", 1.0 if has_dependabot else 0.0, "bool")
         )

@@ -90,6 +90,7 @@ class GitHubClient:
             return None
         try:
             import base64
+
             data = await self.get(f"/repos/{owner}/{repo}/contents/{path}")
             if isinstance(data, dict) and data.get("encoding") == "base64":
                 raw: str = data.get("content", "")

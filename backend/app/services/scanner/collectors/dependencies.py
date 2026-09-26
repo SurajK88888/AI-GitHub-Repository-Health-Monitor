@@ -23,8 +23,8 @@ _MANIFEST_LOCKFILE_PAIRS: list[tuple[str, str | None]] = [
     ("package.json", "package-lock.json"),
     ("package.json", "yarn.lock"),
     ("package.json", "pnpm-lock.yaml"),
-    ("pyproject.toml", None),            # can use uv.lock or poetry.lock
-    ("requirements.txt", None),          # lockfile optional for requirements
+    ("pyproject.toml", None),  # can use uv.lock or poetry.lock
+    ("requirements.txt", None),  # lockfile optional for requirements
     ("Pipfile", "Pipfile.lock"),
     ("Gemfile", "Gemfile.lock"),
     ("go.mod", "go.sum"),
@@ -36,10 +36,17 @@ _MANIFEST_LOCKFILE_PAIRS: list[tuple[str, str | None]] = [
 ]
 
 _LOCKFILES = {
-    "package-lock.json", "yarn.lock", "pnpm-lock.yaml",
-    "uv.lock", "poetry.lock", "Pipfile.lock",
-    "Gemfile.lock", "go.sum", "Cargo.lock",
-    "composer.lock", "pubspec.lock",
+    "package-lock.json",
+    "yarn.lock",
+    "pnpm-lock.yaml",
+    "uv.lock",
+    "poetry.lock",
+    "Pipfile.lock",
+    "Gemfile.lock",
+    "go.sum",
+    "Cargo.lock",
+    "composer.lock",
+    "pubspec.lock",
 }
 
 
@@ -73,10 +80,7 @@ class DependenciesCollector(BaseCollector):
             if lockfile:
                 # Also look for alternative lockfiles (e.g. yarn.lock / pnpm-lock)
                 alternatives = [lf for lf in _LOCKFILES if lf.lower() in all_files_lower]
-                has_any_lock = (
-                    lockfile.lower() in root_files_lower
-                    or bool(alternatives)
-                )
+                has_any_lock = lockfile.lower() in root_files_lower or bool(alternatives)
                 if not has_any_lock and manifest == "package.json":
                     missing_lockfile.append(manifest)
                 elif lockfile.lower() not in root_files_lower and manifest != "package.json":

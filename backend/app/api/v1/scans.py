@@ -39,6 +39,7 @@ router = APIRouter(tags=["scans"])
 
 # ── Helper: assert workspace ownership ────────────────────────────────────────
 
+
 async def _get_owned_repo(
     repo_id: uuid.UUID,
     current_user: CurrentUser,
@@ -61,6 +62,7 @@ async def _get_owned_repo(
 
 # ── POST /repositories/{repo_id}/scans ────────────────────────────────────────
 
+
 @router.post(
     "/repositories/{repo_id}/scans",
     status_code=status.HTTP_202_ACCEPTED,
@@ -76,6 +78,7 @@ async def trigger_scan(
     """Create a QUEUED scan record and enqueue the background scan job."""
     repo = await _get_owned_repo(repo_id, current_user, db)
     from app.services.scanner.runner import enqueue_repository_scan
+
     scan = await enqueue_repository_scan(repo.id, db, trigger=TriggerType.MANUAL)
 
     # Enqueue ARQ job
@@ -92,6 +95,7 @@ async def trigger_scan(
 
 # ── GET /repositories/{repo_id}/scans ─────────────────────────────────────────
 
+
 @router.get(
     "/repositories/{repo_id}/scans",
     response_model=PaginatedScanResponse,
@@ -107,9 +111,7 @@ async def list_scans(
     """Return paginated scans for a repository, newest first."""
     await _get_owned_repo(repo_id, current_user, db)
 
-    total_result = await db.execute(
-        select(Scan).where(Scan.repository_id == repo_id)
-    )
+    total_result = await db.execute(select(Scan).where(Scan.repository_id == repo_id))
     all_scans = total_result.scalars().all()
     total = len(all_scans)
 
@@ -134,6 +136,7 @@ async def list_scans(
 
 # ── GET /scans/{scan_id} ──────────────────────────────────────────────────────
 
+
 @router.get(
     "/scans/{scan_id}",
     response_model=ScanResponse,
@@ -154,6 +157,7 @@ async def get_scan(
 
 
 # ── GET /scans/{scan_id}/metrics ──────────────────────────────────────────────
+
 
 @router.get(
     "/scans/{scan_id}/metrics",

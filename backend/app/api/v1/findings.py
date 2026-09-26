@@ -63,6 +63,7 @@ def _finding_to_response(f: Finding) -> FindingResponse:
 
 # ── GET /repositories/{repo_id}/findings ──────────────────────────────────────
 
+
 @router.get(
     "/repositories/{repo_id}/findings",
     response_model=PaginatedFindingResponse,
@@ -113,6 +114,7 @@ async def list_findings(
 
 
 # ── GET /findings/{finding_id} ────────────────────────────────────────────────
+
 
 @router.get(
     "/findings/{finding_id}",
