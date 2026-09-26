@@ -1,0 +1,30 @@
+#!/bin/sh
+# Pre-commit hook: Auto-format backend Python files with ruff and re-stage
+
+# Find staged Python files in backend/
+staged_files=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^backend/.*\.py$')
+
+if [ -n "$staged_files" ]; then
+    echo "⚡ [pre-commit] Auto-formatting backend Python files with Ruff..."
+
+    if command -v python >/dev/null 2>&1; then
+        PYTHON_EXEC="python"
+    elif command -v py >/dev/null 2>&1; then
+        PYTHON_EXEC="py"
+    else
+        echo "⚠️ Python not found, skipping Ruff formatting."
+        exit 0
+    fi
+
+    echo "$staged_files" | while IFS= read -r file; do
+        if [ -f "$file" ]; then
+            $PYTHON_EXEC -m ruff format "$file"
+            $PYTHON_EXEC -m ruff check --fix "$file"
+            git add "$file"
+        fi
+    done
+
+    echo "✅ [pre-commit] Backend formatting complete and staged."
+fi
+
+exit 0
