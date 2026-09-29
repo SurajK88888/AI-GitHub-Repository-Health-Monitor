@@ -9,6 +9,7 @@ Wraps httpx.AsyncClient with:
 
 from __future__ import annotations
 
+import base64
 from typing import Any
 
 import httpx
@@ -77,6 +78,109 @@ class GitHubClient:
         response.raise_for_status()
         result: dict[str, Any] | list[Any] = response.json()
         return result
+
+    async def post(self, path: str, **kwargs: Any) -> dict[str, Any] | list[Any]:
+        """Perform a POST request and return parsed JSON."""
+        assert self._client is not None, "Use GitHubClient as async context manager"
+        response = await self._client.post(path, **kwargs)
+        self._check_rate_limit(response)
+        response.raise_for_status()
+        result: dict[str, Any] | list[Any] = response.json()
+        return result
+
+    async def put(self, path: str, **kwargs: Any) -> dict[str, Any] | list[Any]:
+        """Perform a PUT request and return parsed JSON."""
+        assert self._client is not None, "Use GitHubClient as async context manager"
+        response = await self._client.put(path, **kwargs)
+        self._check_rate_limit(response)
+        response.raise_for_status()
+        result: dict[str, Any] | list[Any] = response.json()
+        return result
+
+    async def get_branch_sha(self, branch: str) -> str | None:
+        """Get the latest commit SHA of a branch."""
+        owner = self._owner
+        repo = self._repo
+        if not (owner and repo):
+            return None
+        try:
+            data = await self.get(f"/repos/{owner}/{repo}/branches/{branch}")
+            if isinstance(data, dict):
+                commit = data.get("commit")
+                if isinstance(commit, dict):
+                    sha = commit.get("sha")
+                    if isinstance(sha, str):
+                        return sha
+        except Exception:
+            return None
+        return None
+
+    async def create_branch(self, new_branch: str, base_sha: str) -> dict[str, Any]:
+        """Create a new git reference / branch pointing to base_sha."""
+        owner = self._owner
+        repo = self._repo
+        assert owner and repo, "owner and repo must be set to create branch"
+        payload = {
+            "ref": f"refs/heads/{new_branch}",
+            "sha": base_sha,
+        }
+        res = await self.post(f"/repos/{owner}/{repo}/git/refs", json=payload)
+        assert isinstance(res, dict)
+        return res
+
+    async def create_or_update_file(
+        self,
+        path: str,
+        message: str,
+        content: str,
+        branch: str,
+        sha: str | None = None,
+    ) -> dict[str, Any]:
+        """Commit a file into a specific branch.
+
+        Args:
+            path: Relative file path in repository (e.g. 'SECURITY.md').
+            message: Git commit message.
+            content: Raw text content to commit (will be base64-encoded).
+            branch: Target branch name.
+            sha: File blob SHA if updating an existing file.
+        """
+        owner = self._owner
+        repo = self._repo
+        assert owner and repo, "owner and repo must be set to commit file"
+        encoded_content = base64.b64encode(content.encode("utf-8")).decode("utf-8")
+        payload: dict[str, Any] = {
+            "message": message,
+            "content": encoded_content,
+            "branch": branch,
+        }
+        if sha:
+            payload["sha"] = sha
+
+        res = await self.put(f"/repos/{owner}/{repo}/contents/{path}", json=payload)
+        assert isinstance(res, dict)
+        return res
+
+    async def create_pull_request(
+        self,
+        title: str,
+        body: str,
+        head: str,
+        base: str,
+    ) -> dict[str, Any]:
+        """Open a pull request on the repository."""
+        owner = self._owner
+        repo = self._repo
+        assert owner and repo, "owner and repo must be set to create PR"
+        payload = {
+            "title": title,
+            "body": body,
+            "head": head,
+            "base": base,
+        }
+        res = await self.post(f"/repos/{owner}/{repo}/pulls", json=payload)
+        assert isinstance(res, dict)
+        return res
 
     async def get_file_content(self, path: str) -> str | None:
         """Fetch and decode the text content of a single file.

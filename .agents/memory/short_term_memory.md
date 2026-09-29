@@ -1,8 +1,8 @@
 # Short-Term Memory
 
 ## Current status
-- Phase 4 COMPLETE — Health Scoring Engine, Gemini AI Analysis, Worker Pipeline, Health Scores API, Recommendations API — 174/174 tests passing, ruff clean, mypy clean, 79.02% coverage.
-- Next: Phase 5 — Automation & Remediation (AI-driven PR creation, branch management, notification dispatch, scheduled monitoring).
+- Phase 5 COMPLETE — Automation & Remediation (GitHub Remediation Engine, In-App & Event Notifications, Action Execution, Scheduled Monitoring Worker, AI Actions API, Notifications API) — 212/212 tests passing, ruff clean, mypy clean, 79.29% coverage.
+- Next: Phase 6 — Frontend Dashboard & UI Components (Next.js 15, React 19, Tailwind CSS, repository views, findings, scores, actions, notifications).
 
 ## Completed work
 - Phase 1: Full foundation scaffold, 18 models, Alembic migration, 9 Pydantic schemas, FastAPI core, Next.js frontend, CI workflow.
@@ -41,4 +41,23 @@
     - `GET /repositories/{id}/recommendations`, `GET /recommendations/{id}`, `POST /recommendations/{id}/approve` (creates `AIAction` audit trail).
     - Registered in `main.py`.
   - Tests: 174/174 tests passing, 79.02% coverage, ruff clean, mypy clean.
+- Phase 5:
+  - GitHub Remediation Engine (`services/github/client.py`, `services/remediation/templates.py`, `services/remediation/executor.py`):
+    - Extended `GitHubClient` with mutation endpoints: `post`, `put`, `get_branch_sha`, `create_branch`, `create_or_update_file`, `create_pull_request`.
+    - Templated fix generators for `SECURITY.md`, `.github/dependabot.yml`, `.github/workflows/ci.yml`, `README.md`, `CONTRIBUTING.md`.
+    - `execute_remediation_action`: validates action is `APPROVED`, creates dedicated branch, commits fix, opens PR, updates action/recommendation status to `COMPLETED`, logs audit event, and dispatches in-app notification.
+  - Notification Service (`services/notifications/service.py`):
+    - `create_notification`: creates in-app notification records, respecting user `NotificationPreference`.
+    - `dispatch_scan_notifications`: event-driven dispatcher handling `SCAN_FAILED`, `CRITICAL_FINDING`, `SCORE_DEGRADATION` (>= 10 point drop), and `SCAN_COMPLETED`.
+    - Integrated into `scan_job.py` worker pipeline.
+  - Background Worker Jobs (`workers/jobs/action_job.py`, `workers/jobs/scheduled_scans.py`):
+    - `run_approved_action`: executes remediation action asynchronously via ARQ.
+    - `dispatch_scheduled_scans`: periodic cron job dispatching scans for monitored repositories.
+    - Registered in `WorkerSettings.functions`.
+  - API Endpoints & Schemas (`api/v1/ai_actions.py`, `api/v1/notifications.py`, `schemas/ai.py`, `schemas/notification.py`):
+    - AI Actions API: `GET /repositories/{id}/actions`, `GET /actions/{id}`, `POST /actions/{id}/execute` (202 Accepted, ARQ enqueued).
+    - Notifications API: `GET /notifications`, `GET /notifications/unread-count`, `POST /notifications/mark-read`, `POST /notifications/mark-all-read`, `GET/PUT /notifications/preferences`.
+    - Registered in `main.py`.
+  - Tests: 212/212 tests passing, 79.29% coverage, ruff clean, mypy clean.
+
 

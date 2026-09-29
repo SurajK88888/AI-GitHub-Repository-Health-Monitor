@@ -122,7 +122,11 @@ async def _execute_scan(scan_uuid: uuid.UUID, db: AsyncSession) -> None:
         except Exception:
             logger.debug("Redis generator close failed for scan %s", scan_uuid)
 
-    # ── Phase 4: scoring + AI analysis (only if scan succeeded) ───────────
+    # ── Phase 4 & 5: scoring, AI analysis & notification dispatch ─────────
+    from app.models.finding import Finding
+    from app.models.health_score import HealthScore
+    from app.services.notifications.service import dispatch_scan_notifications
+
     if scan_succeeded:
         # Deterministic scoring — must succeed for the scan to be meaningful
         health_score = await calculate_and_save_health_score(scan_uuid, db)
@@ -132,3 +136,39 @@ async def _execute_scan(scan_uuid: uuid.UUID, db: AsyncSession) -> None:
 
         # AI analysis — fault-tolerant, failure does NOT block anything
         await run_ai_analysis(scan_uuid, db)
+
+        # Update last_scanned_at
+        repo.last_scanned_at = datetime.now(UTC)
+        await db.commit()
+
+        # Fetch open findings & previous score for notification dispatching
+        findings_res = await db.execute(
+            select(Finding).where(
+                Finding.repository_id == scan.repository_id,
+                Finding.status == "OPEN",
+            )
+        )
+        open_findings = list(findings_res.scalars().all())
+
+        prev_res = await db.execute(
+            select(HealthScore)
+            .where(
+                HealthScore.repository_id == scan.repository_id,
+                HealthScore.id != health_score.id,
+            )
+            .order_by(HealthScore.created_at.desc())
+            .limit(1)
+        )
+        prev = prev_res.scalars().first()
+        prev_score = prev.overall_score if prev else None
+
+        await dispatch_scan_notifications(
+            db=db,
+            scan=scan,
+            health_score=health_score,
+            previous_score=prev_score,
+            open_findings=open_findings,
+        )
+    else:
+        # Scan failed — notify members
+        await dispatch_scan_notifications(db=db, scan=scan)

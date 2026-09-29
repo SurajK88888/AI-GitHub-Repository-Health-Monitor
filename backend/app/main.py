@@ -6,11 +6,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1 import (
+    ai_actions,
     auth,
     findings,
     health,
     health_scores,
     installations,
+    notifications,
     recommendations,
     repositories,
     scans,
@@ -50,6 +52,8 @@ def create_app() -> FastAPI:
     application.include_router(findings.router, prefix=_prefix)
     application.include_router(health_scores.router, prefix=_prefix)
     application.include_router(recommendations.router, prefix=_prefix)
+    application.include_router(ai_actions.router, prefix=_prefix)
+    application.include_router(notifications.router, prefix=_prefix)
 
     return application
 

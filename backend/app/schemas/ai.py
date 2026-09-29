@@ -33,3 +33,31 @@ class AIAnalysisResponse(APIModel):
     result: AIAnalysisResultSchema | None = None
     created_at: datetime
     completed_at: datetime | None = None
+
+
+class AIActionResponse(APIModel):
+    """Resource response for an AI-generated or user-approved action."""
+
+    id: uuid.UUID
+    workspace_id: uuid.UUID
+    repository_id: uuid.UUID
+    recommendation_id: uuid.UUID | None = None
+    requested_by: uuid.UUID
+    action_type: str
+    status: str
+    approval_required: bool
+    approved_at: datetime | None = None
+    completed_at: datetime | None = None
+    result: dict[str, Any] | None = None
+    error_message: str | None = None
+    created_at: datetime
+
+
+class PaginatedAIActionResponse(APIModel):
+    """Paginated list of AI actions."""
+
+    items: list[AIActionResponse] = []
+    total: int = 0
+    page: int = 1
+    page_size: int = 20
+    has_next: bool = False

@@ -27,6 +27,9 @@ Use for confirmed, durable project knowledge. Keep it concise; link to `docs/` f
 | 2026-09-26 | Hard safety caps on critical findings | Critical security finding caps overall score at 50; per-category critical caps at 30, high at 60 | Doc 04 |
 | 2026-09-26 | Fault-tolerant AI analysis pipeline | AI provider failure/timeout records status as SKIPPED/FAILED and never blocks scoring or scan completion | Doc 04, 05 |
 | 2026-09-26 | Two-layer prompt sanitization | Prompt only includes sanitized finding metadata, never raw evidence blobs or source code | Doc 01, 04 |
+| 2026-09-27 | Automated remediation requires prior APPROVED status | Action executor validates status == APPROVED; never executes without explicit user approval | Doc 06, 07 |
+| 2026-09-27 | Isolated remediation branches | All remediation commits are pushed to a dedicated branch (health-monitor/remediation-*) before PR | Doc 05, 06 |
+| 2026-09-27 | Event-driven in-app notifications with preference filtering | Scans and actions trigger structured notifications that honor user preference suppresses | Doc 05, 08 |
 
 ## Invariants
 - Weights in ScoringConfiguration must sum to 100 — enforced at schema and DB level
