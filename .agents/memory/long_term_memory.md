@@ -30,6 +30,10 @@ Use for confirmed, durable project knowledge. Keep it concise; link to `docs/` f
 | 2026-09-27 | Automated remediation requires prior APPROVED status | Action executor validates status == APPROVED; never executes without explicit user approval | Doc 06, 07 |
 | 2026-09-27 | Isolated remediation branches | All remediation commits are pushed to a dedicated branch (health-monitor/remediation-*) before PR | Doc 05, 06 |
 | 2026-09-27 | Event-driven in-app notifications with preference filtering | Scans and actions trigger structured notifications that honor user preference suppresses | Doc 05, 08 |
+| 2026-09-30 | Next.js 15 App Router with Suspense boundaries | useSearchParams in client components wrapped in Suspense for static prerendering | — |
+| 2026-09-30 | @dnd-kit Sortable + localStorage persistence | Decoupled drag-and-drop grid with instant local layout restoration and fallback | — |
+| 2026-09-30 | Framer Motion 3D spring hover cards | MotionCard preserves 3D perspective with spring physics and elevation glow shadow | — |
+| 2026-09-30 | Cohesive indigo/violet/purple variant spectrum | Consistent hue-family variants across backgrounds, surfaces, badges, and score charts | — |
 
 ## Invariants
 - Weights in ScoringConfiguration must sum to 100 — enforced at schema and DB level

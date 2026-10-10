@@ -178,3 +178,43 @@ async def execute_action(
         ) from exc
 
     return _to_action_response(action)
+
+
+# ── GET /actions (workspace-scoped) ───────────────────────────────────────────
+
+
+@router.get(
+    "/actions",
+    response_model=PaginatedAIActionResponse,
+    summary="List all actions for current workspace",
+)
+async def list_workspace_actions(
+    action_status: str | None = Query(None, alias="status", description="Filter by status"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100, alias="limit"),
+    current_user: CurrentUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PaginatedAIActionResponse:
+    """Return paginated AI actions across all repositories in the workspace."""
+    workspace_id = _require_workspace(current_user)
+
+    query = select(AIAction).where(AIAction.workspace_id == workspace_id)
+    if action_status:
+        query = query.where(AIAction.status == action_status.upper())
+
+    count_res = await db.execute(select(func.count()).select_from(query.subquery()))
+    total: int = count_res.scalar_one()
+
+    offset = (page - 1) * page_size
+    items_res = await db.execute(
+        query.order_by(AIAction.created_at.desc()).offset(offset).limit(page_size)
+    )
+    actions = list(items_res.scalars().all())
+
+    return PaginatedAIActionResponse(
+        items=[_to_action_response(a) for a in actions],
+        total=total,
+        page=page,
+        page_size=page_size,
+        has_next=(offset + page_size) < total,
+    )

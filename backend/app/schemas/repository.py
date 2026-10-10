@@ -27,12 +27,13 @@ class RepositoryResponse(TimestampedResponse):
     full_name: str
     description: str | None = None
     default_branch: str
-    private: bool
-    archived: bool
-    fork: bool
+    private: bool = Field(default=False, validation_alias="is_private")
+    archived: bool = Field(default=False, validation_alias="is_archived")
+    fork: bool = Field(default=False, validation_alias="is_fork")
     html_url: str
     monitoring_enabled: bool
     last_scanned_at: datetime | None = None
+    latest_health_score: dict[str, object] | None = None
 
     model_config = APIModel.model_config
 

@@ -53,6 +53,7 @@ async def bootstrap_session(
         email=current_user.email,
         name=current_user.name,
         avatar_url=current_user.avatar_url,
+        user_id=current_user.user_id,
     )
     workspace = await user_service.get_or_create_workspace(db, user=user)
     await user_service.record_login(db, user=user)
