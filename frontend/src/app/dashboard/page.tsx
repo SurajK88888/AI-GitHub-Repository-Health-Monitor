@@ -71,6 +71,7 @@ export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const { widgets, saveWidgets } = useDashboardLayout();
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -108,8 +109,6 @@ export default function DashboardPage() {
       </DashboardLayout>
     );
   }
-
-  const [syncing, setSyncing] = useState(false);
 
   const handleSync = async () => {
     setSyncing(true);
