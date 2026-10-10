@@ -33,7 +33,7 @@ class RepositoryResponse(TimestampedResponse):
     html_url: str
     monitoring_enabled: bool
     last_scanned_at: datetime | None = None
-    latest_health_score: dict | None = None
+    latest_health_score: dict[str, object] | None = None
 
     model_config = APIModel.model_config
 

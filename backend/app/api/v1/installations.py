@@ -173,8 +173,8 @@ async def discover_installations(
     for inst in matched_installations:
         inst_id: int = inst["id"]
         account = inst.get("account", {})
-        acc_id: int = account.get("id") or 0
-        acc_login: str = account.get("login", "")
+        acc_id = account.get("id") or 0
+        acc_login = account.get("login", "")
         acc_type: str = account.get("type", "User")
         permissions = inst.get("permissions")
 
