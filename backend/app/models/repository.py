@@ -55,6 +55,18 @@ class Repository(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     last_scanned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    @property
+    def private(self) -> bool:
+        return self.is_private
+
+    @property
+    def archived(self) -> bool:
+        return self.is_archived
+
+    @property
+    def fork(self) -> bool:
+        return self.is_fork
+
     # ── Relationships ─────────────────────────────────────────────────────────
     github_installation: Mapped[GitHubInstallation] = relationship(  # type: ignore[name-defined]  # noqa: F821
         "GitHubInstallation", back_populates="repositories"

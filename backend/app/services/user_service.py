@@ -35,6 +35,7 @@ async def get_or_create_user(
     email: str,
     name: str | None = None,
     avatar_url: str | None = None,
+    user_id: uuid.UUID | None = None,
 ) -> User:
     """Return existing user or create a new one.
 
@@ -43,6 +44,10 @@ async def get_or_create_user(
         email: The user's email address (unique identifier).
         name: Display name from the OAuth provider.
         avatar_url: Profile picture URL.
+        user_id: Optional UUID to use as the new user's primary key.
+            When provided (derived deterministically from the JWT ``sub``),
+            the DB row will share the same ID as the token — preventing
+            workspace_id mismatches on the first authenticated request.
 
     Returns:
         The User ORM instance (already flushed, not yet committed).
@@ -52,7 +57,7 @@ async def get_or_create_user(
 
     if user is None:
         user = User(
-            id=uuid.uuid4(),
+            id=user_id if user_id is not None else uuid.uuid4(),
             email=email,
             name=name,
             avatar_url=avatar_url,

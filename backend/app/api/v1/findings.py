@@ -133,3 +133,58 @@ async def get_finding(
     # Verify workspace ownership
     await _get_owned_repo(finding.repository_id, current_user, db)
     return _finding_to_response(finding)
+
+
+# ── GET /findings (workspace-scoped) ──────────────────────────────────────────
+
+
+@router.get(
+    "/findings",
+    response_model=PaginatedFindingResponse,
+    summary="List all findings for the current workspace",
+)
+async def list_workspace_findings(
+    category: FindingCategory | None = Query(default=None),
+    severity: FindingSeverity | None = Query(default=None),
+    finding_status: FindingStatus | None = Query(default=None, alias="status"),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200, alias="limit"),
+    current_user: CurrentUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PaginatedFindingResponse:
+    """Return paginated findings across all repositories in the user's workspace."""
+    if not current_user.workspace_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No workspace")
+
+    stmt = (
+        select(Finding)
+        .join(Repository, Repository.id == Finding.repository_id)
+        .where(Repository.workspace_id == current_user.workspace_id)
+    )
+    if category is not None:
+        stmt = stmt.where(Finding.category == category.value)
+    if severity is not None:
+        stmt = stmt.where(Finding.severity == severity.value)
+    if finding_status is not None:
+        stmt = stmt.where(Finding.status == finding_status.value)
+
+    from sqlalchemy import func
+
+    count_result = await db.execute(select(func.count()).select_from(stmt.subquery()))
+    total = count_result.scalar_one()
+
+    offset = (page - 1) * page_size
+    page_result = await db.execute(
+        stmt.order_by(Finding.severity, Finding.last_detected_at.desc())
+        .offset(offset)
+        .limit(page_size)
+    )
+    findings = page_result.scalars().all()
+
+    return PaginatedFindingResponse(
+        items=[_finding_to_response(f) for f in findings],
+        total=total,
+        page=page,
+        page_size=page_size,
+        has_next=(offset + page_size) < total,
+    )

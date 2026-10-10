@@ -1,8 +1,11 @@
 # Short-Term Memory
 
 ## Current status
-- Phase 5 COMPLETE — Automation & Remediation (GitHub Remediation Engine, In-App & Event Notifications, Action Execution, Scheduled Monitoring Worker, AI Actions API, Notifications API) — 212/212 tests passing, ruff clean, mypy clean, 79.29% coverage.
-- Next: Phase 6 — Frontend Dashboard & UI Components (Next.js 15, React 19, Tailwind CSS, repository views, findings, scores, actions, notifications).
+- Phase 6 COMPLETE — Frontend Dashboard & UI Components (Next.js 15, React 19, Tailwind CSS, Moveable Drag & Drop Dashboard with @dnd-kit, 3D Hover Animations with Framer Motion, CareOps Light Modern SaaS Theme with White Cards, Deep Indigo Sidebar, Violet Highlights, Repository Views, Findings Browser, AI Actions, In-App Notifications, Settings, and Branded Signin).
+- Production build passed (11/11 routes), ESLint clean (0 errors/warnings), TypeScript strict check clean (0 errors), backend test suite 212/212 passing.
+- Docker Compose local stack verified: PostgreSQL, Redis, Backend (Uvicorn), Worker, and Frontend (Next.js 15 standalone) running healthy. NextAuth v5 `trustHost: true`, `AUTH_SECRET`, and `AUTH_TRUST_HOST` verified.
+- Auth chain fixed (2026-10-01): 3 root-causes resolved — backend now accepts GitHub numeric sub via uuid5 derivation, `get_or_create_user` accepts deterministic user_id, bootstrap_session passes user_id, frontend exposes JWT via `/api/auth/token` route, `AuthProvider` wires token store + backend bootstrap on sign-in, layout nests `AuthProvider` inside `SessionProvider`.
+- Next: Phase 7 — Testing, Polish, Documentation & Deployment.
 
 ## Completed work
 - Phase 1: Full foundation scaffold, 18 models, Alembic migration, 9 Pydantic schemas, FastAPI core, Next.js frontend, CI workflow.
@@ -59,5 +62,38 @@
     - Notifications API: `GET /notifications`, `GET /notifications/unread-count`, `POST /notifications/mark-read`, `POST /notifications/mark-all-read`, `GET/PUT /notifications/preferences`.
     - Registered in `main.py`.
   - Tests: 212/212 tests passing, 79.29% coverage, ruff clean, mypy clean.
+- Phase 6:
+  - Design & Theme:
+    - Cohesive indigo/violet/purple variant color palette configured in `tailwind.config.ts` and `globals.css`.
+    - 3D card perspective hover-lift animations (`whileHover={{ y: -8, scale: 1.02, rotateX: 1.5, rotateY: 0.5, boxShadow: ... }}`) using Framer Motion with spring physics.
+    - Drag-and-drop dashboard grid built with `@dnd-kit/core` and `@dnd-kit/sortable`, supporting touch and pointer sensors with `localStorage` order persistence.
+  - UI Component Library (`src/components/ui/`):
+    - `MotionCard`: 3D hover-lift card with gradient hover glow and drag-handle affordance.
+    - `ScoreRing`: animated SVG circular progress with Framer Motion stroke dashoffset and score label animation.
+    - `Badge`: variant badges for `FindingSeverity`, `ScoreBand`, `ScanStatus` (with pulsing live indicator), and `AIActionStatus`.
+    - `Button`: spring-animated button with 5 variants, 3 sizes, and inline loading spinner.
+    - `Spinner` & `Skeleton`: custom shimmering skeletons, empty states, and error boundary fallbacks.
+  - Layout & Navigation (`src/components/layout/`):
+    - `Sidebar`: spring-animated navigation items with `layoutId` active indicators and unread notification counter badge.
+    - `Topbar`: sticky blurred navigation header with user dropdown menu and notification quick-link.
+    - `DashboardLayout`: persistent app shell that automatically polls unread notifications every 30s.
+  - Dashboard & Widgets (`src/components/dashboard/`):
+    - `DraggableDashboard`: drag-and-drop widget grid with `DragOverlay` ghost state and spring animations.
+    - 8 customizable widgets: `OverviewScores`, `CriticalFindings`, `RecentScans`, `ScoreTrend` (Recharts AreaChart), `TopRepos`, `Notifications`, `QuickActions`, `ActivityFeed`.
+  - App Router Pages (`src/app/`):
+    - `/` (Home): interactive hero landing page with feature cards and animated brand icon.
+    - `/dashboard`: draggable widget layout with auto-sync and refresh controls.
+    - `/repositories`: grid of monitored repositories with health score rings and instant "Scan Now" trigger.
+    - `/repositories/[id]`: repository detail view with 8-category score breakdowns, category score bars, and tabbed Findings / Recommendations / AI Actions panels with approval and execution triggers.
+    - `/findings`: repository findings explorer with severity filters (`CRITICAL`, `HIGH`, `MEDIUM`, etc.) and expandable code evidence.
+    - `/actions`: AI remediation actions manager with status filter, execution triggers, and GitHub PR links.
+    - `/notifications`: real-time notification feed with severity indicators, single mark-as-read, and mark-all-read.
+    - `/settings`: notification preferences management with animated spring switches.
+    - `/auth/signin`: custom branded signin page wrapped in Next.js `<Suspense>` boundary.
+  - Verification:
+    - `npm run build` succeeds (11/11 static and dynamic routes compiled).
+    - `npm run lint` clean (0 errors, 0 warnings).
+    - `npx tsc --noEmit` clean (0 type errors).
+    - Backend pytest test suite clean (212/212 passing, 79.29% coverage).
 
 

@@ -79,11 +79,15 @@ async def _assert_workspace_member(
 async def list_repositories(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+    limit: int | None = Query(None, description="Alias for page_size"),
     monitoring_only: bool = Query(False, description="Only return monitored repos"),
     current_user: CurrentUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> PaginatedResponse:
     """Return paginated list of repositories scoped to the user's workspace."""
+    if limit is not None:
+        page_size = min(max(limit, 1), 100)
+
     if not current_user.workspace_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

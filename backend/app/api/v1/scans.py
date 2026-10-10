@@ -193,3 +193,47 @@ async def get_scan_metrics(
         )
         for m in metrics
     ]
+
+
+# ── GET /scans (workspace-scoped) ─────────────────────────────────────────────
+
+
+@router.get(
+    "/scans",
+    response_model=PaginatedScanResponse,
+    summary="List all scans for the current workspace",
+)
+async def list_workspace_scans(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100, alias="limit"),
+    current_user: CurrentUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PaginatedScanResponse:
+    """Return paginated scans across all repositories in the workspace, newest first."""
+    if not current_user.workspace_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No workspace")
+
+    stmt = (
+        select(Scan)
+        .join(Repository, Repository.id == Scan.repository_id)
+        .where(Repository.workspace_id == current_user.workspace_id)
+    )
+
+    from sqlalchemy import func
+
+    count_result = await db.execute(select(func.count()).select_from(stmt.subquery()))
+    total = count_result.scalar_one()
+
+    offset = (page - 1) * page_size
+    page_result = await db.execute(
+        stmt.order_by(Scan.created_at.desc()).offset(offset).limit(page_size)
+    )
+    scans = page_result.scalars().all()
+
+    return PaginatedScanResponse(
+        items=[ScanResponse.model_validate(s) for s in scans],
+        total=total,
+        page=page,
+        page_size=page_size,
+        has_next=(offset + page_size) < total,
+    )
