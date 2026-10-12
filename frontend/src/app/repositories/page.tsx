@@ -8,8 +8,8 @@
 export const dynamic = "force-dynamic";
 
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { useEffect, useState, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, useCallback, Suspense, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 
@@ -30,16 +30,19 @@ const stagger = {
 };
 const item = {
   hidden: { opacity: 0, y: 16 },
-  show:  { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 28 } },
+  show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 28 } },
 };
 
-export default function RepositoriesPage() {
+
+function RepositoriesContent() {
   const { status } = useSession();
   const router = useRouter();
   const [scanningId, setScanningId] = useState<string | null>(null);
   const [scanMsg, setScanMsg] = useState<{ id: string; msg: string } | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const autoSyncedRef = useRef(false);
 
   useEffect(() => {
     if (status === "unauthenticated") router.replace("/auth/signin");
@@ -70,6 +73,15 @@ export default function RepositoriesPage() {
       setSyncing(false);
     }
   };
+
+  // Automatically trigger sync when redirected back with ?installed=true
+  useEffect(() => {
+    if (searchParams.get("installed") === "true" && !autoSyncedRef.current) {
+      autoSyncedRef.current = true;
+      handleSync();
+      router.replace("/repositories");
+    }
+  }, [searchParams, handleSync, router]);
 
   const triggerScan = useCallback(
     async (repoId: string) => {
@@ -261,5 +273,19 @@ export default function RepositoriesPage() {
         </motion.div>
       )}
     </DashboardLayout>
+  );
+}
+
+export default function RepositoriesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-[#f7f7fb]">
+          <Spinner size="lg" />
+        </div>
+      }
+    >
+      <RepositoriesContent />
+    </Suspense>
   );
 }
