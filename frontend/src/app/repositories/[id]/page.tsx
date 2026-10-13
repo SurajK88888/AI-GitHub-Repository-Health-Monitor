@@ -209,9 +209,8 @@ export default function RepositoryDetailPage() {
     Boolean(
       findingsData?.items?.some(
         (f) =>
-          f.status === "OPEN" &&
-          (f.title.toLowerCase().includes("no source code") ||
-            f.title.toLowerCase().includes("empty repository"))
+          f.title.toLowerCase().includes("no source code") ||
+          f.title.toLowerCase().includes("empty repository")
       )
     );
 
