@@ -41,11 +41,13 @@ def _make_finding(
     category: str,
     severity: str,
     status: str = FindingStatus.OPEN.value,
+    title: str = "Test Finding",
 ) -> MagicMock:
     f = MagicMock()
     f.category = category
     f.severity = severity
     f.status = status
+    f.title = title
     return f
 
 
@@ -112,6 +114,24 @@ def test_derive_score_neutral_when_no_metric() -> None:
 def test_derive_score_clamps_above_100() -> None:
     metrics = [_make_metric("SECURITY", 150.0)]
     assert _derive_category_raw_score("SECURITY", metrics) == 100.0
+
+
+def test_derive_score_uses_category_prefixed_metric() -> None:
+    m = MagicMock()
+    m.category = "SECURITY"
+    m.metric_name = "security_score"
+    m.metric_value = 85.0
+    m.metric_unit = "score"
+    assert _derive_category_raw_score("SECURITY", [m]) == 85.0
+
+
+def test_derive_score_uses_metric_unit_score() -> None:
+    m = MagicMock()
+    m.category = "DOCUMENTATION"
+    m.metric_name = "doc_health"
+    m.metric_value = 92.0
+    m.metric_unit = "score"
+    assert _derive_category_raw_score("DOCUMENTATION", [m]) == 92.0
 
 
 # ── Unit: _apply_finding_caps ──────────────────────────────────────────────────
@@ -201,6 +221,26 @@ def test_overall_capped_at_50_on_critical_security_finding() -> None:
         configuration_version=1,
     )
     assert result.overall_score <= 50.0
+
+
+def test_overall_capped_at_30_on_empty_repository_finding() -> None:
+    cfg_id = _make_config_id()
+    findings = [
+        _make_finding(
+            "CODE_QUALITY",
+            FindingSeverity.HIGH.value,
+            title="No source code detected (Empty Repository)",
+        )
+    ]
+    result = calculate_health_score(
+        metrics=_all_score_metrics(100.0),
+        open_findings=findings,
+        weights=DEFAULT_WEIGHTS,
+        configuration_id=cfg_id,
+        configuration_version=1,
+    )
+    assert result.overall_score <= 30.0
+    assert result.score_band == ScoreBand.CRITICAL
 
 
 def test_critical_security_cap_does_not_affect_category_scores_elsewhere() -> None:

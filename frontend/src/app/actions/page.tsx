@@ -146,15 +146,15 @@ export default function ActionsPage() {
                       )}
                     </div>
 
-                    {action.branch_name && (
+                    {(action.result?.branch_name || action.branch_name) && (
                       <p className="text-xs font-mono text-gray-500">
-                        ⎇ {action.branch_name}
+                        ⎇ {action.result?.branch_name || action.branch_name}
                       </p>
                     )}
 
-                    {action.pr_url && (
+                    {(action.result?.pull_request_url || action.pr_url) && (
                       <a
-                        href={action.pr_url}
+                        href={action.result?.pull_request_url || action.pr_url || "#"}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 hover:underline underline-offset-2 mt-1 font-medium"

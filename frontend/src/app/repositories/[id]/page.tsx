@@ -25,7 +25,7 @@ import {
   ErrorState,
   Skeleton,
 } from "@/components/ui/Spinner";
-import { useFetch } from "@/lib/hooks";
+import { useFetch, usePoll } from "@/lib/hooks";
 import { timeAgo, scoreBandHex, cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import type {
@@ -35,6 +35,8 @@ import type {
   Finding,
   Recommendation,
   AIAction,
+  AIAnalysis,
+  Scan,
 } from "@/lib/types";
 
 // ── Category score bar ────────────────────────────────────────────────────
@@ -81,6 +83,7 @@ export default function RepositoryDetailPage() {
   const [scanMsg, setScanMsg] = useState<string | null>(null);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [executingId, setExecutingId] = useState<string | null>(null);
+  const [activeScanId, setActiveScanId] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === "unauthenticated") router.replace("/auth/signin");
@@ -89,17 +92,19 @@ export default function RepositoryDetailPage() {
   const { data: repo, loading: repoLoading, error: repoError } =
     useFetch<Repository>(id ? `/repositories/${id}` : null);
 
-  const { data: health, loading: healthLoading } =
+  const { data: health, loading: healthLoading, refetch: refetchHealth } =
     useFetch<HealthScore>(id ? `/repositories/${id}/health` : null);
 
-  const { data: findingsData, loading: findingsLoading } =
+  const { data: findingsData, loading: findingsLoading, refetch: refetchFindings } =
     useFetch<Paginated<Finding>>(
-      activeTab === "findings" && id
-        ? `/repositories/${id}/findings?limit=20`
-        : null,
+      id ? `/repositories/${id}/findings?limit=50` : null,
     );
 
-  const { data: recsData, loading: recsLoading } =
+
+  const { data: aiAnalysis, refetch: refetchAiAnalysis } =
+    useFetch<AIAnalysis>(id ? `/repositories/${id}/ai-analysis` : null);
+
+  const { data: recsData, loading: recsLoading, refetch: refetchRecs } =
     useFetch<Paginated<Recommendation>>(
       activeTab === "recommendations" && id
         ? `/repositories/${id}/recommendations?limit=20`
@@ -113,13 +118,41 @@ export default function RepositoryDetailPage() {
         : null,
     );
 
+  // ── Scan polling: poll the active scan every 4 s until COMPLETED/FAILED ──
+  const { data: liveScan } = usePoll<Scan>(
+    activeScanId ? `/scans/${activeScanId}` : null,
+    4000,
+  );
+
+  // When the polled scan reaches a terminal state, refetch all data
+  useEffect(() => {
+    if (!liveScan) return;
+    const terminalStatuses = ["COMPLETED", "FAILED", "CANCELLED"];
+    if (terminalStatuses.includes(liveScan.status)) {
+      setActiveScanId(null); // stop polling
+      if (liveScan.status === "COMPLETED") {
+        setScanMsg("Scan complete! Health data updated.");
+        refetchHealth();
+        refetchFindings();
+        refetchAiAnalysis();
+      } else {
+        setScanMsg(`Scan ${liveScan.status.toLowerCase()}.`);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveScan?.status]);
+
   const triggerScan = useCallback(async () => {
     if (!id) return;
     setScanning(true);
     setScanMsg(null);
     try {
-      await api.post(`/repositories/${id}/scans`);
-      setScanMsg("Scan queued successfully!");
+      const result = await api.post<{ id: string }>(`/repositories/${id}/scans`);
+      setScanMsg("Scan queued — results will appear automatically…");
+      // Start polling this scan ID
+      if (result?.id) {
+        setActiveScanId(result.id);
+      }
     } catch (err: unknown) {
       setScanMsg(err instanceof Error ? err.message : "Failed to queue scan");
     } finally {
@@ -130,11 +163,13 @@ export default function RepositoryDetailPage() {
   const approveRec = useCallback(async (recId: string) => {
     setApprovingId(recId);
     try {
-      await api.post(`/recommendations/${recId}/approve`);
+      await api.post(`/recommendations/${recId}/approve`, { confirmation: true });
+      refetchRecs();
+      refetchActions();
     } finally {
       setApprovingId(null);
     }
-  }, []);
+  }, [refetchRecs, refetchActions]);
 
   const executeAction = useCallback(async (actionId: string) => {
     setExecutingId(actionId);
@@ -169,6 +204,17 @@ export default function RepositoryDetailPage() {
 
   const hs = health;
 
+  const hasNoCode =
+    Boolean(repo.has_no_code) ||
+    Boolean(
+      findingsData?.items?.some(
+        (f) =>
+          f.status === "OPEN" &&
+          (f.title.toLowerCase().includes("no source code") ||
+            f.title.toLowerCase().includes("empty repository"))
+      )
+    );
+
   const TABS: { id: Tab; label: string }[] = [
     { id: "findings",        label: "Findings" },
     { id: "recommendations", label: "Recommendations" },
@@ -177,7 +223,16 @@ export default function RepositoryDetailPage() {
 
   return (
     <DashboardLayout
-      title={repo.name}
+      title={
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {hasNoCode && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 border border-yellow-300 shadow-sm">
+              <span>⚠️</span> Empty Repository
+            </span>
+          )}
+          <span>{repo.name}</span>
+        </div>
+      }
       subtitle={repo.full_name}
       actions={
         <Button
@@ -190,12 +245,41 @@ export default function RepositoryDetailPage() {
         </Button>
       }
     >
+      {hasNoCode && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6 px-4 py-3.5 rounded-xl border border-yellow-300 bg-yellow-50 text-yellow-900 flex items-start gap-3 shadow-sm"
+        >
+          <span className="text-xl leading-none mt-0.5">⚠️</span>
+          <div>
+            <h4 className="text-sm font-bold text-yellow-900">
+              Warning: No source code detected in this repository
+            </h4>
+            <p className="text-xs text-yellow-800 mt-1">
+              This repository contains no recognizable programming language files or package manifests. Automated tests, CI/CD pipelines, and dependency management cannot be evaluated until source code is committed.
+            </p>
+          </div>
+        </motion.div>
+      )}
+
       {scanMsg && (
+
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-4 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-medium"
+          className={cn(
+            "mb-4 px-4 py-2.5 rounded-xl border text-sm font-medium flex items-center gap-2",
+            scanMsg.includes("complete")
+              ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+              : scanMsg.includes("queued") || activeScanId
+              ? "bg-blue-50 border-blue-200 text-blue-700"
+              : "bg-red-50 border-red-200 text-red-700"
+          )}
         >
+          {(scanMsg.includes("queued") || activeScanId) && (
+            <Spinner size="sm" />
+          )}
           {scanMsg}
         </motion.div>
       )}
@@ -213,9 +297,12 @@ export default function RepositoryDetailPage() {
                   Calculated {timeAgo(hs.calculated_at)}
                 </p>
               </>
-            ) : healthLoading ? (
-              <div className="flex items-center justify-center h-40">
+            ) : activeScanId || healthLoading ? (
+              <div className="flex flex-col items-center justify-center h-40 gap-3">
                 <Spinner size="lg" />
+                <p className="text-xs text-gray-500 font-medium">
+                  {activeScanId ? "Scanning repository…" : "Loading…"}
+                </p>
               </div>
             ) : (
               <EmptyState title="No health score yet" description="Run a scan to generate" icon="⬡" />
@@ -231,28 +318,37 @@ export default function RepositoryDetailPage() {
             </h3>
             {hs ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
-                {[
-                  { label: "Documentation",   score: hs.documentation_score },
-                  { label: "Security",        score: hs.security_score },
-                  { label: "Code Quality",    score: hs.code_quality_score },
-                  { label: "Dependencies",    score: hs.dependency_score },
-                  { label: "Issues",          score: hs.issues_score },
-                  { label: "Pull Requests",   score: hs.pull_requests_score },
-                  { label: "Activity",        score: hs.activity_score },
-                  { label: "Configuration",   score: hs.configuration_score },
-                ].map(({ label, score }) => (
-                  <CategoryBar
-                    key={label}
-                    label={label}
-                    score={score}
-                    color={scoreBandHex(
-                      score >= 90 ? "EXCELLENT" :
-                      score >= 75 ? "GOOD" :
-                      score >= 60 ? "NEEDS_ATTENTION" :
-                      score >= 40 ? "POOR" : "CRITICAL"
-                    )}
-                  />
-                ))}
+                {(() => {
+                  const getCategoryScore = (catKey: string, fallback?: number) => {
+                    if (fallback !== undefined && fallback !== null) return fallback;
+                    const found = hs.categories?.find(
+                      (c) => c.category?.toUpperCase() === catKey.toUpperCase()
+                    );
+                    return found ? found.raw_score : 0;
+                  };
+                  return [
+                    { label: "Documentation", score: getCategoryScore("DOCUMENTATION", hs.documentation_score) },
+                    { label: "Security",      score: getCategoryScore("SECURITY", hs.security_score) },
+                    { label: "Code Quality",  score: getCategoryScore("CODE_QUALITY", hs.code_quality_score) },
+                    { label: "Dependencies",  score: getCategoryScore("DEPENDENCIES", hs.dependency_score) },
+                    { label: "Issues",        score: getCategoryScore("ISSUES", hs.issues_score) },
+                    { label: "Pull Requests", score: getCategoryScore("PULL_REQUESTS", hs.pull_requests_score) },
+                    { label: "Activity",      score: getCategoryScore("ACTIVITY", hs.activity_score) },
+                    { label: "Configuration", score: getCategoryScore("CONFIGURATION", hs.configuration_score) },
+                  ].map(({ label, score }) => (
+                    <CategoryBar
+                      key={label}
+                      label={label}
+                      score={score}
+                      color={scoreBandHex(
+                        score >= 90 ? "EXCELLENT" :
+                        score >= 75 ? "GOOD" :
+                        score >= 60 ? "NEEDS_ATTENTION" :
+                        score >= 40 ? "POOR" : "CRITICAL"
+                      )}
+                    />
+                  ));
+                })()}
               </div>
             ) : (
               <Skeleton className="h-48" />
@@ -260,6 +356,50 @@ export default function RepositoryDetailPage() {
           </div>
         </MotionCard>
       </div>
+
+      {/* AI Executive Summary & Risk Analysis */}
+      {aiAnalysis?.result && (
+        <MotionCard className="mb-6 p-6 border-indigo-100 bg-gradient-to-br from-white via-indigo-50/20 to-purple-50/10">
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-600 text-white text-xs font-bold shadow-xs">
+                AI
+              </span>
+              <h3 className="text-sm font-semibold text-gray-900">
+                Gemini Health Assessment
+              </h3>
+            </div>
+            <span className="text-[11px] font-medium text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200">
+              {aiAnalysis.model}
+            </span>
+          </div>
+
+          {aiAnalysis.result.summary && (
+            <p className="text-sm text-gray-700 leading-relaxed mb-4">
+              {aiAnalysis.result.summary}
+            </p>
+          )}
+
+          {aiAnalysis.result.key_risks && aiAnalysis.result.key_risks.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                Key Identified Risks
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {aiAnalysis.result.key_risks.map((risk, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-start gap-2 p-2.5 rounded-lg bg-white/80 border border-gray-100 text-xs text-gray-700 shadow-2xs"
+                  >
+                    <span className="text-amber-500 font-bold shrink-0">⚠</span>
+                    <span>{risk}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </MotionCard>
+      )}
 
       {/* Tabs */}
       <div className="mb-5">
@@ -350,7 +490,9 @@ export default function RepositoryDetailPage() {
                           </span>
                         </div>
                         <p className="text-xs text-gray-500 line-clamp-2">{rec.description}</p>
-                        <p className="text-xs text-brand-600 mt-1 font-semibold">{rec.action_type}</p>
+                        <p className="text-xs text-brand-600 mt-1 font-semibold">
+                          {rec.recommended_action?.action_type || rec.action_type || "MANUAL_REVIEW"}
+                        </p>
                       </div>
                       <div className="shrink-0 flex flex-col items-end gap-2">
                         <span className={cn(
@@ -406,15 +548,17 @@ export default function RepositoryDetailPage() {
                           <p className="text-sm font-semibold text-gray-900">{action.action_type}</p>
                           <AIActionStatusBadge status={action.status} />
                         </div>
-                        {action.branch_name && (
-                          <p className="text-xs text-gray-500 font-mono">Branch: {action.branch_name}</p>
+                        {(action.result?.branch_name || action.branch_name) && (
+                          <p className="text-xs text-gray-500 font-mono">
+                            Branch: {action.result?.branch_name || action.branch_name}
+                          </p>
                         )}
-                        {action.pr_url && (
+                        {(action.result?.pull_request_url || action.pr_url) && (
                           <a
-                            href={action.pr_url}
+                            href={action.result?.pull_request_url || action.pr_url || "#"}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-xs text-brand-600 hover:text-brand-700 underline-offset-2 hover:underline font-medium"
+                            className="text-xs text-brand-600 hover:text-brand-700 underline-offset-2 hover:underline font-medium inline-flex items-center gap-1"
                           >
                             View Pull Request ↗
                           </a>

@@ -295,7 +295,9 @@ export function RecentScansWidget() {
       {scans.map((s) => (
         <div key={s.id} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-b-0">
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-gray-800 truncate">{s.repository_id.slice(0, 8).toUpperCase()}</p>
+            <p className="text-sm font-medium text-gray-800 truncate">
+              {s.repository_name || s.repository_id.slice(0, 8).toUpperCase()}
+            </p>
             <p className="text-xs text-gray-400">{timeAgo(s.started_at ?? s.created_at)}</p>
           </div>
           <ScanStatusBadge status={s.status} />

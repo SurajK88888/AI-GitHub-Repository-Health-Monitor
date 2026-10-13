@@ -7,10 +7,11 @@ import { api } from "@/lib/api";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
-  title?: string;
+  title?: React.ReactNode;
   subtitle?: string;
   actions?: React.ReactNode;
 }
+
 
 export function DashboardLayout({ children, title, subtitle, actions }: DashboardLayoutProps) {
   const [unreadCount, setUnreadCount] = useState(0);

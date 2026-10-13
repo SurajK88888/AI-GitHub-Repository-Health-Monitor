@@ -16,8 +16,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.enums import FindingStatus, ScoreBand
+from app.models.ai_analysis import AIAnalysis
+from app.models.finding import Finding
+from app.models.health_score import HealthScore
 from app.models.repository import Repository
 from app.models.workspace import WorkspaceMember
+from app.schemas.ai import AIAnalysisResponse
 from app.schemas.common import PaginatedResponse
 from app.schemas.repository import RepositoryResponse
 from app.services import audit_service
@@ -71,6 +76,56 @@ async def _assert_workspace_member(
         )
 
 
+async def _attach_latest_health_scores(
+    db: AsyncSession,
+    repos: list[Repository],
+) -> list[RepositoryResponse]:
+    if not repos:
+        return []
+
+    repo_ids = [r.id for r in repos]
+    stmt = (
+        select(HealthScore)
+        .where(HealthScore.repository_id.in_(repo_ids))
+        .order_by(HealthScore.created_at.desc())
+    )
+    hs_result = await db.execute(stmt)
+    latest_scores: dict[UUID, HealthScore] = {}
+    for hs in hs_result.scalars().all():
+        if hs.repository_id not in latest_scores:
+            latest_scores[hs.repository_id] = hs
+
+    # Query open findings for empty / no-source-code repositories
+    finding_stmt = (
+        select(Finding.repository_id)
+        .where(
+            Finding.repository_id.in_(repo_ids),
+            Finding.status == FindingStatus.OPEN.value,
+            (Finding.title.ilike("%no source code%") | Finding.title.ilike("%empty repository%")),
+        )
+        .distinct()
+    )
+    empty_repos_result = await db.execute(finding_stmt)
+    empty_repo_ids = set(empty_repos_result.scalars().all())
+
+    responses: list[RepositoryResponse] = []
+    for r in repos:
+        resp = RepositoryResponse.model_validate(r)
+        resp.has_no_code = r.id in empty_repo_ids
+        hs = latest_scores.get(r.id)
+        if hs:
+            resp.latest_health_score = {
+                "id": str(hs.id),
+                "repository_id": str(hs.repository_id),
+                "scan_id": str(hs.scan_id),
+                "overall_score": hs.overall_score,
+                "score_band": ScoreBand.for_score(hs.overall_score).value,
+                "calculated_at": hs.created_at.isoformat() if hs.created_at else None,
+            }
+        responses.append(resp)
+    return responses
+
+
 @router.get(
     "",
     response_model=PaginatedResponse,
@@ -111,9 +166,10 @@ async def list_repositories(
     offset = (page - 1) * page_size
     result = await db.execute(query.offset(offset).limit(page_size))
     repos = result.scalars().all()
+    items = await _attach_latest_health_scores(db, repos)
 
     return PaginatedResponse(
-        items=[RepositoryResponse.model_validate(r) for r in repos],
+        items=items,
         total=total,
         page=page,
         page_size=page_size,
@@ -140,7 +196,8 @@ async def get_repository(
         )
     await _assert_workspace_member(db, current_user.workspace_id, current_user.user_id)
     repo = await _get_repo_or_404(db, repository_id, current_user.workspace_id)
-    return RepositoryResponse.model_validate(repo)
+    items = await _attach_latest_health_scores(db, [repo])
+    return items[0]
 
 
 @router.patch(
@@ -181,4 +238,37 @@ async def update_repository(
         await db.commit()
         await db.refresh(repo)
 
-    return RepositoryResponse.model_validate(repo)
+    items = await _attach_latest_health_scores(db, [repo])
+    return items[0]
+
+
+@router.get(
+    "/{repository_id}/ai-analysis",
+    response_model=AIAnalysisResponse | None,
+    summary="Get latest AI analysis for a repository",
+)
+async def get_latest_ai_analysis(
+    repository_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> AIAnalysisResponse | None:
+    """Return the most recent completed AI analysis for the specified repository."""
+    if not current_user.workspace_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No workspace found.",
+        )
+    await _assert_workspace_member(db, current_user.workspace_id, current_user.user_id)
+    repo = await _get_repo_or_404(db, repository_id, current_user.workspace_id)
+
+    stmt = (
+        select(AIAnalysis)
+        .where(AIAnalysis.repository_id == repo.id)
+        .order_by(AIAnalysis.created_at.desc())
+        .limit(1)
+    )
+    result = await db.execute(stmt)
+    analysis = result.scalars().first()
+    if analysis is None:
+        return None
+    return AIAnalysisResponse.model_validate(analysis)

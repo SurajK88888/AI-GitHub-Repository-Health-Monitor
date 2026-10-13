@@ -54,6 +54,8 @@ DEFAULT_WEIGHTS: dict[str, float] = {
 _CAP_CRITICAL_CATEGORY: float = 30.0  # per-category cap when CRITICAL finding present
 _CAP_HIGH_CATEGORY: float = 60.0  # per-category cap when HIGH finding present
 _CAP_OVERALL_CRITICAL_SECURITY: float = 50.0  # overall cap when CRITICAL SECURITY active
+_CAP_OVERALL_EMPTY_REPO: float = 30.0  # overall cap when repo has no source code / is empty
+
 
 # Category score formula constants
 _METRIC_SCORE_KEY = "score"  # collectors emit a metric named "score" per category
@@ -91,14 +93,17 @@ def _derive_category_raw_score(
 ) -> float:
     """Derive a 0–100 raw score for a category from its ScanMetric rows.
 
-    Strategy: collectors emit a ``score`` metric for each category. If the
-    collector emits a numeric ``score`` metric, use it directly. Otherwise
-    fall back to 50.0 (neutral — missing data must not be treated as failure,
+    Strategy: collectors emit either a ``score`` or ``<category>_score`` metric
+    (with metric_unit="score") for each category. If found, use it directly.
+    Otherwise fall back to 50.0 (neutral — missing data must not be treated as failure,
     per Doc 04 rule 3).
     """
+    cat_lower = category.lower()
+    expected_names = {_METRIC_SCORE_KEY, f"{cat_lower}_score", f"{category}_score"}
     for m in metrics:
-        if m.category == category and m.metric_name == _METRIC_SCORE_KEY:
-            return _clamp(float(m.metric_value))
+        if m.category.upper() == category.upper():
+            if m.metric_name in expected_names or getattr(m, "metric_unit", None) == "score":
+                return _clamp(float(m.metric_value))
     return 50.0  # neutral default when no score metric found
 
 
@@ -177,6 +182,14 @@ def calculate_health_score(
     # Overall safety cap: critical security finding → overall ≤ 50 (Doc 04 §5)
     if has_critical_security:
         overall = min(overall, _CAP_OVERALL_CRITICAL_SECURITY)
+
+    # Overall safety cap: empty repository / no source code → overall ≤ 30
+    has_no_source_code = any(
+        ("no source code" in f.title.lower() or "empty repository" in f.title.lower())
+        for f in open_findings
+    )
+    if has_no_source_code:
+        overall = min(overall, _CAP_OVERALL_EMPTY_REPO)
 
     return ScoringResult(
         overall_score=round(overall, 2),

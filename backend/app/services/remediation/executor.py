@@ -121,8 +121,16 @@ async def execute_remediation_action(
         category = str(rec.recommended_action.get("category", "CONFIGURATION"))
         params = rec.recommended_action.get("parameters", {})
 
+    effective_action_type = action.action_type
+    if (
+        (not effective_action_type or effective_action_type == "RECOMMENDATION_APPROVE")
+        and rec
+        and rec.recommended_action
+    ):
+        effective_action_type = rec.recommended_action.get("action_type", effective_action_type)
+
     target_file, commit_msg, file_content = generate_remediation_content(
-        action_type=action.action_type,
+        action_type=effective_action_type,
         category=category,
         repo_name=repo_name,
         parameters=params,

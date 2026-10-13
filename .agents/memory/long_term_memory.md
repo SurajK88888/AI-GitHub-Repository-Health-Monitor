@@ -34,6 +34,10 @@ Use for confirmed, durable project knowledge. Keep it concise; link to `docs/` f
 | 2026-09-30 | @dnd-kit Sortable + localStorage persistence | Decoupled drag-and-drop grid with instant local layout restoration and fallback | — |
 | 2026-09-30 | Framer Motion 3D spring hover cards | MotionCard preserves 3D perspective with spring physics and elevation glow shadow | — |
 | 2026-09-30 | Cohesive indigo/violet/purple variant spectrum | Consistent hue-family variants across backgrounds, surfaces, badges, and score charts | — |
+| 2026-10-13 | Multi-user GitHub App installation isolation | Strict account matching; eliminated single-installation fallback in `installations.py` to prevent cross-user leakage | — |
+| 2026-10-13 | Multi-account GitHub selection | NextAuth provider uses `prompt: "select_account"` and stores GitHub `login`/`githubId` in JWT/session | — |
+| 2026-10-13 | Post-install GitHub App setup handshake | `/api/github/setup` redirects to `/repositories?installed=true` triggering single-execution auto-sync | — |
+| 2026-10-13 | Modular GlobalNavbar pattern | Decoupled nav config (`navItems.ts`) and UI (`GlobalNavbar.tsx`) in `src/components/navbar/` | — |
 
 ## Invariants
 - Weights in ScoringConfiguration must sum to 100 — enforced at schema and DB level
@@ -41,4 +45,5 @@ Use for confirmed, durable project knowledge. Keep it concise; link to `docs/` f
 - All repo-modifying AI actions require explicit user approval + audit log
 - No secrets in source code, logs, or audit records
 - Every workspace-owned resource enforces workspace isolation at the API layer
+- Multi-user isolation: GitHub App installations must strictly match target account (`target_id` or `target_login`)
 - AI failure must not prevent deterministic health scoring from completing

@@ -94,6 +94,9 @@ class DependenciesCollector(BaseCollector):
         )
 
         if not manifests_found:
+            is_empty = not ctx.has_source_code()
+            if is_empty:
+                score = 0.0
             result.findings.append(
                 FindingData(
                     category=_CAT,
@@ -101,8 +104,14 @@ class DependenciesCollector(BaseCollector):
                     title="No recognized dependency manifests found",
                     description=(
                         "No package manifests (package.json, pyproject.toml, go.mod, etc.) "
-                        "were detected. If this is a code repository, add a manifest for "
-                        "reproducible dependency management."
+                        "were detected in an empty repository. If adding code, configure a "
+                        "package manifest for reproducible dependency management."
+                        if is_empty
+                        else (
+                            "No package manifests (package.json, pyproject.toml, go.mod, etc.) "
+                            "were detected. If this is a code repository, add a manifest for "
+                            "reproducible dependency management."
+                        )
                     ),
                     fingerprint=_fp("no_manifest"),
                 )

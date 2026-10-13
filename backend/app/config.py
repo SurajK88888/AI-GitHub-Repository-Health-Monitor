@@ -11,7 +11,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", "../.env"),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
@@ -46,10 +46,15 @@ class Settings(BaseSettings):
     nextauth_secret: str = "insecure-nextauth-default-change-in-production"
 
     # ── AI Provider ──────────────────────────────────────────────────────────
-    ai_provider: Literal["openai", "anthropic", "google"] = "openai"
+    ai_provider: Literal["openai", "anthropic", "google", "groq"] = "google"
+    ai_model: str = "gemini-2.5-flash"
+    google_ai_model: str = ""
     openai_api_key: str = ""
     anthropic_api_key: str = ""
     google_ai_api_key: str = ""
+    gemini_api_key: str = ""
+    groq_api_key: str = ""
+    groq_model: str = "llama-3.3-70b-versatile"
 
     # ── Email / Notifications ────────────────────────────────────────────────
     email_provider: str = "smtp"

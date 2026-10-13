@@ -112,6 +112,78 @@ class ScanContext:
                     return content
         return None
 
+    def has_source_code(self) -> bool:
+        """Return True if any recognizable source code files or package manifests exist."""
+        _CODE_EXTENSIONS = (
+            ".py",
+            ".js",
+            ".jsx",
+            ".ts",
+            ".tsx",
+            ".go",
+            ".rs",
+            ".java",
+            ".c",
+            ".cpp",
+            ".cc",
+            ".cxx",
+            ".h",
+            ".hpp",
+            ".cs",
+            ".php",
+            ".rb",
+            ".swift",
+            ".kt",
+            ".kts",
+            ".scala",
+            ".sh",
+            ".bash",
+            ".sql",
+            ".html",
+            ".css",
+            ".scss",
+            ".vue",
+            ".svelte",
+            ".m",
+            ".mm",
+            ".r",
+            ".dart",
+            ".lua",
+            ".pl",
+            ".pm",
+            ".ex",
+            ".exs",
+            ".erl",
+            ".clj",
+            ".hs",
+            ".zig",
+            ".nim",
+            ".ipynb",
+        )
+        _PROJECT_MANIFESTS = (
+            "package.json",
+            "pyproject.toml",
+            "requirements.txt",
+            "setup.py",
+            "setup.cfg",
+            "pipfile",
+            "gemfile",
+            "go.mod",
+            "cargo.toml",
+            "pom.xml",
+            "build.gradle",
+            "composer.json",
+            "mix.exs",
+        )
+        for path in self.file_paths:
+            p_lower = path.lower()
+            if p_lower.endswith(_CODE_EXTENSIONS):
+                return True
+            filename = p_lower.split("/")[-1]
+            if filename in _PROJECT_MANIFESTS:
+                return True
+        return False
+
 
 @dataclass
 class MetricData:

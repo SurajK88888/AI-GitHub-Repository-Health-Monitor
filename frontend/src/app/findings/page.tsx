@@ -122,7 +122,7 @@ export default function FindingsPage() {
                       )}
                       {f.evidence && (
                         <pre className="mt-2 text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded-lg p-2.5 overflow-x-auto max-h-24">
-                          {f.evidence}
+                          {typeof f.evidence === "string" ? f.evidence : JSON.stringify(f.evidence, null, 2)}
                         </pre>
                       )}
                     </div>

@@ -187,12 +187,20 @@ function RepositoriesContent() {
                   <div className="flex items-start justify-between gap-3 mb-4">
                     <div className="min-w-0">
                       <Link href={`/repositories/${repo.id}`}>
-                        <h2 className="text-base font-bold text-gray-900 hover:text-brand-600 transition-colors truncate">
-                          {repo.name}
-                        </h2>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {repo.has_no_code && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-yellow-100 text-yellow-800 border border-yellow-300">
+                              <span>⚠️</span> Empty Repo
+                            </span>
+                          )}
+                          <h2 className="text-base font-bold text-gray-900 hover:text-brand-600 transition-colors truncate">
+                            {repo.name}
+                          </h2>
+                        </div>
                       </Link>
                       <p className="text-xs text-gray-400 truncate">{repo.full_name}</p>
                     </div>
+
                     {repo.latest_health_score && (
                       <ScoreRing
                         score={repo.latest_health_score.overall_score}

@@ -34,6 +34,7 @@ class RepositoryResponse(TimestampedResponse):
     monitoring_enabled: bool
     last_scanned_at: datetime | None = None
     latest_health_score: dict[str, object] | None = None
+    has_no_code: bool = False
 
     model_config = APIModel.model_config
 

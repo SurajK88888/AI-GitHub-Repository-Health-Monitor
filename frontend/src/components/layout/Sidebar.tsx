@@ -11,12 +11,12 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { href: "/dashboard",     label: "Dashboard",      icon: "⊞" },
-  { href: "/repositories",  label: "Repositories",   icon: "⬡" },
-  { href: "/findings",      label: "Findings",        icon: "🔍" },
-  { href: "/actions",       label: "AI Actions",      icon: "⚡" },
-  { href: "/notifications", label: "Notifications",   icon: "🔔" },
-  { href: "/settings",      label: "Settings",        icon: "⚙" },
+  { href: "/dashboard", label: "Dashboard", icon: "⊞" },
+  { href: "/repositories", label: "Repositories", icon: "⬡" },
+  { href: "/findings", label: "Findings", icon: "🔍" },
+  { href: "/actions", label: "AI Actions", icon: "⚡" },
+  { href: "/notifications", label: "Notifications", icon: "🔔" },
+  { href: "/settings", label: "Settings", icon: "⚙" },
 ];
 
 interface SidebarProps {
@@ -30,7 +30,7 @@ export function Sidebar({ unreadCount = 0 }: SidebarProps) {
     <aside className="app-sidebar flex flex-col bg-[#181438] bg-gradient-to-b from-[#181438] to-[#20134b] text-white">
       {/* Brand Header */}
       <div className="px-6 py-6 border-b border-white/10">
-        <Link href="/dashboard" className="flex items-center gap-3">
+        <Link href="/" className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-gradient-brand flex items-center justify-center shadow-brand-sm flex-shrink-0">
             <span className="text-white text-base font-bold">⬡</span>
           </div>
