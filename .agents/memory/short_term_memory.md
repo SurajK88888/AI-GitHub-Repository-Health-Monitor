@@ -1,7 +1,42 @@
 # Short-Term Memory
 
 ## Current status
+- **Session 19 (2026-10-14): Widget Controller (Master Switch & Granular Visibility Controls).**
+  - **Feature:**
+    1. Built modular `WidgetController` located in `frontend/src/components/widgets/controller/` with draggable floating dock, master switch (`Enable All Widgets` ON/OFF), and granular per-widget visibility toggles (`System Clock`, `Theme Switcher`).
+    2. Implemented `WidgetProvider` & `useWidgetController()` hook managing state and local storage persistence (`gh_health_widgets_controller_settings`).
+    3. Added "Reset Layout" action dispatching `gh_health_reset_widget_positions` to restore all widget positions back to default navbar docking.
+    4. Documented controller architecture in `.agents/rules/widgets.md`.
+  - **Verification:** `tsc --noEmit` passed cleanly with 0 errors.
+- **Session 18 (2026-10-14): Latest Notifications 5-Item Limit & Notifications Center Filter Tags.**
+  - **Feature:**
+    1. **Latest Notifications Widget Limit:** In `frontend/src/components/dashboard/Widgets.tsx`, updated `NotificationsWidget` to display only the first 5 notifications at a time using `.slice(0, 5)` and added `page_size=5` to the fetch query parameter.
+    2. **Notification Center Filter Tags:** In `frontend/src/app/notifications/page.tsx`, replaced the binary "Unread only" toggle button with three dedicated filter tags: **All**, **Read**, and **Unread**.
+    3. **Dynamic Filtering & State Sync:** Dynamically fetches from `/notifications` using the `is_read` parameter (`false`, `true`, or none) with `page_size=50&limit=50`, filters notifications considering optimistic `localRead` state, syncs unread counts via `/notifications/unread-count`, and tailors empty states to each selected tag.
+  - **Files Changed:**
+    - `frontend/src/components/dashboard/Widgets.tsx`
+    - `frontend/src/app/notifications/page.tsx`
+  - **Verification:** `npm run lint` clean (0 errors, 0 breaking warnings).
+- **Session 17 (2026-10-14): Dark-Bright Theme Toggle Widget.**
+  - **Feature:** Built modular Dark/Bright/Auto Theme Switcher Widget under `frontend/src/components/widgets/theme-toggle/` with segmented pill control (`Bright ☀️`, `Dark 🌙`, `Auto 💻`), draggable pointer-capture engine, viewport boundary clamping, position/mode persistence in `localStorage`, and zero-flash initialization script in `app/layout.tsx`. Configured Tailwind `darkMode: "class"` and updated CSS custom properties in `globals.css`.
+  - **Verification:** `npm run type-check` passed with 0 errors.
+- **Session 16 (2026-10-14): Interactive Tech Stack Visualizer Component.**
+  - **Feature:**
+    1. Built dynamic, interactive architecture visualizer container (`TechStackVisualizer.tsx`) categorizing repository technologies into 4 tiers: Client & UI, API & Backend, Data & Storage, and DevOps & CI/CD.
+    2. Interactive node selection with hover states, live connection status indicators (`Connected & Active`, `Monitored by Scan`, `Action Required`), purpose descriptions, and configuration file origins.
+    3. Filterable by architectural layer with empty state handling for zero-code repositories.
+  - **Files Changed:** Created `frontend/src/components/repository/TechStackVisualizer.tsx` and integrated into `frontend/src/app/repositories/[id]/page.tsx`. Zero unrelated code modified.
+  - **Verification:** `next build` compiled cleanly with 0 errors. Docker frontend container restarted.
+- **Session 15 (2026-10-14): Category Descriptions & Scrollable Backend Calculation Details Modal.**
+
+  - **Feature:**
+    1. Added exact, concise description below each of the 8 category names in the Category Breakdown grid.
+    2. Added a circular "i" info icon button next to each category name.
+    3. Clicking the "i" icon displays an interactive, scrollable info display modal (`max-h-[62vh] overflow-y-auto`) presenting full breakdown logic as per backend collectors: base score, exact deduction amounts, conditions, severity tags, safety caps & overrides, weight percentage, and the underlying backend collector file path.
+  - **Files Changed:** Only `frontend/src/app/repositories/[id]/page.tsx`. Zero unrelated files touched.
+  - **Verification:** Next.js production build succeeded with zero errors, frontend container restarted.
 - **Session 14 (2026-10-14): Frontend Empty Repository Warning Tag & Alert Banner.**
+
   - **Feature:** Display a yellow warning tag (`⚠️ Empty Repository`) on the left side of the repository name, and a prominent yellow warning banner on the repository detail page (`/repositories/[id]`) and repository cards (`/repositories`).
   - **Conditional Logic:** Evaluates `repo.has_no_code` and open findings (`no source code`/`empty repository`). If source code is present, neither the tag nor warning message is displayed.
   - **Changes:**

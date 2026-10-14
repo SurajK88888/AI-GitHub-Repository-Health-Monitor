@@ -30,10 +30,16 @@ const item = {
   show:  { opacity: 1, x: 0, scale: 1, transition: { type: "spring" as const, stiffness: 300, damping: 28 } },
 };
 
+const TAGS: Array<{ key: "all" | "read" | "unread"; label: string }> = [
+  { key: "all", label: "All" },
+  { key: "read", label: "Read" },
+  { key: "unread", label: "Unread" },
+];
+
 export default function NotificationsPage() {
   const { status } = useSession();
   const router = useRouter();
-  const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+  const [filter, setFilter] = useState<"all" | "read" | "unread">("all");
   const [markingAll, setMarkingAll] = useState(false);
   const [localRead, setLocalRead] = useState<Set<string>>(new Set());
 
@@ -41,37 +47,51 @@ export default function NotificationsPage() {
     if (status === "unauthenticated") router.replace("/auth/signin");
   }, [status, router]);
 
-  const path = showUnreadOnly
-    ? "/notifications?is_read=false&limit=50"
-    : "/notifications?limit=50";
+  const path =
+    filter === "unread"
+      ? "/notifications?is_read=false&page_size=50&limit=50"
+      : filter === "read"
+      ? "/notifications?is_read=true&page_size=50&limit=50"
+      : "/notifications?page_size=50&limit=50";
 
   const { data, loading, error, refetch } = useFetch<Paginated<Notification>>(path);
+  const { data: countData, refetch: refetchCount } = useFetch<{ count: number }>("/notifications/unread-count");
   const notifications = data?.items ?? [];
 
   const markRead = useCallback(async (id: string) => {
     setLocalRead((s) => new Set([...s, id]));
     try {
       await api.post("/notifications/mark-read", { notification_ids: [id] });
+      refetchCount();
     } catch {
       // Optimistic — don't revert for single mark-read
     }
-  }, []);
+  }, [refetchCount]);
 
   const markAllRead = useCallback(async () => {
     setMarkingAll(true);
     try {
       await api.post("/notifications/mark-all-read");
       refetch();
+      refetchCount();
     } finally {
       setMarkingAll(false);
     }
-  }, [refetch]);
+  }, [refetch, refetchCount]);
 
   if (status === "loading") return null;
 
-  const unreadCount = notifications.filter(
-    (n) => !n.is_read && !localRead.has(n.id),
-  ).length;
+  const unreadCount =
+    countData?.count !== undefined
+      ? Math.max(0, countData.count - localRead.size)
+      : notifications.filter((n) => !n.is_read && !localRead.has(n.id)).length;
+
+  const displayedNotifications = notifications.filter((n) => {
+    const isRead = n.is_read || localRead.has(n.id);
+    if (filter === "unread") return !isRead;
+    if (filter === "read") return isRead;
+    return true;
+  });
 
   return (
     <DashboardLayout
@@ -79,17 +99,22 @@ export default function NotificationsPage() {
       subtitle={unreadCount > 0 ? `${unreadCount} unread` : "All caught up"}
       actions={
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowUnreadOnly((v) => !v)}
-            className={cn(
-              "px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all",
-              showUnreadOnly
-                ? "bg-brand-50 text-brand-700 border-brand-300"
-                : "bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-800",
-            )}
-          >
-            {showUnreadOnly ? "All" : "Unread only"}
-          </button>
+          <div className="flex items-center gap-1.5">
+            {TAGS.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setFilter(t.key)}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-200",
+                  filter === t.key
+                    ? "bg-brand-50 text-brand-700 border-brand-300 shadow-sm"
+                    : "bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-800",
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
           {unreadCount > 0 && (
             <Button
               variant="secondary"
@@ -111,11 +136,23 @@ export default function NotificationsPage() {
             <Skeleton key={i} className="h-20 rounded-xl" />
           ))}
         </div>
-      ) : notifications.length === 0 ? (
+      ) : displayedNotifications.length === 0 ? (
         <EmptyState
           icon="🔔"
-          title={showUnreadOnly ? "No unread notifications" : "No notifications yet"}
-          description="You're all caught up!"
+          title={
+            filter === "unread"
+              ? "No unread notifications"
+              : filter === "read"
+              ? "No read notifications"
+              : "No notifications yet"
+          }
+          description={
+            filter === "unread"
+              ? "You're all caught up!"
+              : filter === "read"
+              ? "No notifications have been marked as read."
+              : "You're all caught up!"
+          }
         />
       ) : (
         <AnimatePresence>
@@ -125,7 +162,7 @@ export default function NotificationsPage() {
             animate="show"
             className="space-y-2"
           >
-            {notifications.map((n) => {
+            {displayedNotifications.map((n) => {
               const isRead = n.is_read || localRead.has(n.id);
               return (
                 <motion.div key={n.id} variants={item} layout>

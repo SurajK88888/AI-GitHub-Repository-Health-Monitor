@@ -310,8 +310,8 @@ export function RecentScansWidget() {
 // ── Widget: Notifications ─────────────────────────────────────────────────────
 
 export function NotificationsWidget() {
-  const { data, loading } = useFetch<Paginated<Notification>>("/notifications?limit=5&is_read=false");
-  const notifications = data?.items ?? [];
+  const { data, loading } = useFetch<Paginated<Notification>>("/notifications?limit=5&page_size=5&is_read=false");
+  const notifications = (data?.items ?? []).slice(0, 5);
 
   if (loading) {
     return (

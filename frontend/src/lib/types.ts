@@ -126,6 +126,7 @@ export interface Finding {
   title: string;
   description: string;
   severity: FindingSeverity;
+  status?: string;
   resource: string | null;
   evidence: Record<string, unknown> | string | null;
   fingerprint: string;

@@ -18,7 +18,9 @@ import { MotionCard } from "@/components/ui/MotionCard";
 import { ScoreRing } from "@/components/ui/ScoreRing";
 import { ScoreBandBadge, SeverityBadge, AIActionStatusBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { TechStackVisualizer } from "@/components/repository/TechStackVisualizer";
 import {
+
   Spinner,
   SkeletonCard,
   EmptyState,
@@ -39,20 +41,388 @@ import type {
   Scan,
 } from "@/lib/types";
 
+// ── Category Definitions & Calculation Details ───────────────────────────
+
+interface CategoryDeduction {
+  check: string;
+  deduction: string;
+  severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";
+  condition: string;
+}
+
+interface CategoryDetail {
+  key: string;
+  label: string;
+  weight: number;
+  icon: string;
+  shortDesc: string;
+  summary: string;
+  calculationLogic: {
+    baseScore: number;
+    deductions: CategoryDeduction[];
+  };
+  capsAndOverrides?: string;
+  engineFile: string;
+}
+
+const CATEGORY_DETAILS: Record<string, CategoryDetail> = {
+  DOCUMENTATION: {
+    key: "DOCUMENTATION",
+    label: "Documentation",
+    weight: 10,
+    icon: "📄",
+    shortDesc: "README, open-source license, contributing guide & code of conduct.",
+    summary:
+      "Evaluates repository onboarding documentation, licensing clarity, and contributor guidelines to ensure developers can easily understand and contribute.",
+    calculationLogic: {
+      baseScore: 100,
+      deductions: [
+        {
+          check: "Missing README",
+          deduction: "-30 pts",
+          severity: "HIGH",
+          condition: "No README file found at the root of the repository.",
+        },
+        {
+          check: "Short README Content",
+          deduction: "-15 pts",
+          severity: "MEDIUM",
+          condition: "README exists but contains fewer than 100 characters.",
+        },
+        {
+          check: "Missing Open-Source License",
+          deduction: "-25 pts",
+          severity: "HIGH",
+          condition: "No recognized LICENSE file committed in the repository.",
+        },
+        {
+          check: "Missing Contributing Guide",
+          deduction: "-10 pts",
+          severity: "LOW",
+          condition: "No CONTRIBUTING.md found to guide community contributions.",
+        },
+        {
+          check: "Missing Code of Conduct",
+          deduction: "-5 pts",
+          severity: "LOW",
+          condition: "No CODE_OF_CONDUCT.md file defined for community standards.",
+        },
+      ],
+    },
+    capsAndOverrides:
+      "Score is clamped between 0 and 100. Open HIGH severity findings cap the category score at ≤ 60.",
+    engineFile: "collectors/documentation.py",
+  },
+  SECURITY: {
+    key: "SECURITY",
+    label: "Security",
+    weight: 20,
+    icon: "🛡️",
+    shortDesc: "Secret leaks, automated vulnerability alerts, and security policies.",
+    summary:
+      "Scans the codebase for high-risk security vulnerabilities, leaked API tokens or credentials, automated Dependabot integration, and disclosure policies.",
+    calculationLogic: {
+      baseScore: 100,
+      deductions: [
+        {
+          check: "Hardcoded Secrets Detected",
+          deduction: "-50 pts / incident",
+          severity: "CRITICAL",
+          condition:
+            "Committed AWS keys, GitHub tokens, Slack webhooks, or RSA/EC private keys.",
+        },
+        {
+          check: "Missing Dependabot Configuration",
+          deduction: "-15 pts",
+          severity: "LOW",
+          condition: "No .github/dependabot.yml found for automated vulnerability updates.",
+        },
+        {
+          check: "Missing Security Policy",
+          deduction: "-10 pts",
+          severity: "LOW",
+          condition: "No SECURITY.md file explaining responsible disclosure procedures.",
+        },
+      ],
+    },
+    capsAndOverrides:
+      "CRITICAL finding presence automatically caps the Security category score at ≤ 30.0 and caps the entire repository health score at ≤ 50.0.",
+    engineFile: "collectors/security.py",
+  },
+  CODE_QUALITY: {
+    key: "CODE_QUALITY",
+    label: "Code Quality",
+    weight: 20,
+    icon: "🧪",
+    shortDesc: "CI/CD automated pipelines, testing suites, and linter configurations.",
+    summary:
+      "Assesses engineering discipline: presence of automated CI/CD workflows, test coverage indicators, and automated code style formatters.",
+    calculationLogic: {
+      baseScore: 100,
+      deductions: [
+        {
+          check: "No Source Code / Empty Repository",
+          deduction: "Set to 0 pts",
+          severity: "HIGH",
+          condition:
+            "Repository contains no recognizable programming files or manifests. Quality tools cannot be evaluated.",
+        },
+        {
+          check: "Missing CI/CD Workflows",
+          deduction: "-30 pts",
+          severity: "HIGH",
+          condition: "No active GitHub Actions workflows located in .github/workflows/.",
+        },
+        {
+          check: "No Automated Tests Detected",
+          deduction: "-30 pts",
+          severity: "HIGH",
+          condition:
+            "No test directories (tests/, __tests__/, spec/) or test files found in tree.",
+        },
+        {
+          check: "Missing Linter / Formatter Configuration",
+          deduction: "-15 pts",
+          severity: "LOW",
+          condition:
+            "No linter configs (.eslintrc, prettier.config, pyproject.toml, .flake8, etc.) detected.",
+        },
+      ],
+    },
+    capsAndOverrides:
+      "Empty repository triggers an overall repository score safety cap at ≤ 30.0 (CRITICAL band).",
+    engineFile: "collectors/code_quality.py",
+  },
+  DEPENDENCIES: {
+    key: "DEPENDENCIES",
+    label: "Dependencies",
+    weight: 15,
+    icon: "📦",
+    shortDesc: "Package manifests, lockfiles, and deterministic reproducible builds.",
+    summary:
+      "Evaluates package manager adoption, dependency declarations, and lockfile synchronization to ensure safe, reproducible builds.",
+    calculationLogic: {
+      baseScore: 100,
+      deductions: [
+        {
+          check: "Empty Repository / No Manifests",
+          deduction: "Set to 0 pts",
+          severity: "INFO",
+          condition:
+            "No recognized dependency manifests found in an empty repository with no code.",
+        },
+        {
+          check: "Missing Committed Lockfile",
+          deduction: "-20 pts / manifest",
+          severity: "MEDIUM",
+          condition:
+            "Manifest (package.json, Pipfile, go.mod, Cargo.toml) exists without corresponding lockfile.",
+        },
+        {
+          check: "No Manifests in Codebase",
+          deduction: "0 pts",
+          severity: "INFO",
+          condition:
+            "No manifests detected on repository with code (permissible for zero-dependency scripts).",
+        },
+      ],
+    },
+    capsAndOverrides:
+      "Clamped between 0 and 100. Capped at ≤ 60 if HIGH severity findings exist.",
+    engineFile: "collectors/dependencies.py",
+  },
+  ISSUES: {
+    key: "ISSUES",
+    label: "Issues",
+    weight: 10,
+    icon: "🐛",
+    shortDesc: "Issue resolution velocity, stale backlog, and unassigned bugs.",
+    summary:
+      "Measures maintainer responsiveness and issue turnaround times by evaluating aging unaddressed tickets.",
+    calculationLogic: {
+      baseScore: 100,
+      deductions: [
+        {
+          check: "High Volume of Stale Issues",
+          deduction: "-40 pts",
+          severity: "HIGH",
+          condition: "10 or more open issues with no updates or activity in >90 days.",
+        },
+        {
+          check: "Stale Issues Detected",
+          deduction: "-20 pts",
+          severity: "MEDIUM",
+          condition: "Between 1 and 9 open issues with no activity in >90 days.",
+        },
+        {
+          check: "Unassigned Open Issues",
+          deduction: "-10 pts",
+          severity: "LOW",
+          condition: "10 or more open issues lack any assignee.",
+        },
+      ],
+    },
+    capsAndOverrides: "A clean issue backlog (0 open issues) receives a perfect 100 score.",
+    engineFile: "collectors/issues.py",
+  },
+  PULL_REQUESTS: {
+    key: "PULL_REQUESTS",
+    label: "Pull Requests",
+    weight: 10,
+    icon: "🔀",
+    shortDesc: "PR review throughput, merge latency, and abandoned draft PRs.",
+    summary:
+      "Tracks review bottlenecks, pull request turnaround time, and abandoned drafts that delay contributions.",
+    calculationLogic: {
+      baseScore: 100,
+      deductions: [
+        {
+          check: "Excessive Aging Pull Requests",
+          deduction: "-40 pts",
+          severity: "HIGH",
+          condition: "5 or more open PRs without any activity in >30 days.",
+        },
+        {
+          check: "Aging Pull Requests Detected",
+          deduction: "-20 pts",
+          severity: "MEDIUM",
+          condition: "Between 1 and 4 open PRs without any activity in >30 days.",
+        },
+        {
+          check: "Abandoned Draft Pull Requests",
+          deduction: "-10 pts",
+          severity: "LOW",
+          condition: "Open draft pull requests inactive for >60 days.",
+        },
+      ],
+    },
+    capsAndOverrides: "0 open PRs receives a default 100 score (no review bottleneck).",
+    engineFile: "collectors/pull_requests.py",
+  },
+  ACTIVITY: {
+    key: "ACTIVITY",
+    label: "Activity",
+    weight: 10,
+    icon: "📈",
+    shortDesc: "Commit frequency, maintenance recency, and contributor distribution.",
+    summary:
+      "Measures project momentum and vitality: frequency of recent commits, date of last code push, and bus-factor risk.",
+    calculationLogic: {
+      baseScore: 100,
+      deductions: [
+        {
+          check: "Zero Commits in 30 Days",
+          deduction: "-30 pts",
+          severity: "MEDIUM",
+          condition: "No commits pushed to the repository in the last 30 days.",
+        },
+        {
+          check: "Low Commit Frequency",
+          deduction: "-15 pts",
+          severity: "LOW",
+          condition: "Between 1 and 4 commits pushed in the last 30 days (5+ is active).",
+        },
+        {
+          check: "Dormant / Abandoned Repository",
+          deduction: "-30 pts",
+          severity: "HIGH",
+          condition: "Most recent repository push was more than 90 days ago.",
+        },
+        {
+          check: "High Contributor Concentration",
+          deduction: "-10 pts",
+          severity: "LOW",
+          condition:
+            "A single developer authored >80% of recent commits (single point of failure / bus-factor risk).",
+        },
+      ],
+    },
+    capsAndOverrides: "Clamped at minimum 0.0, maximum 100.0.",
+    engineFile: "collectors/activity.py",
+  },
+  CONFIGURATION: {
+    key: "CONFIGURATION",
+    label: "Configuration",
+    weight: 5,
+    icon: "⚙️",
+    shortDesc: "Branch protection rules, default branch naming, and repository metadata.",
+    summary:
+      "Checks repository setup: default branch protection policies, modern branch conventions, description, and metadata tags.",
+    calculationLogic: {
+      baseScore: 100,
+      deductions: [
+        {
+          check: "Missing Branch Protection",
+          deduction: "-20 pts",
+          severity: "HIGH",
+          condition:
+            "Default branch does not enforce required reviews, status checks, or pull requests.",
+        },
+        {
+          check: "Legacy Default Branch Name",
+          deduction: "-5 pts",
+          severity: "INFO",
+          condition: "Default branch is named 'master' instead of modern standard 'main'.",
+        },
+        {
+          check: "Missing Repository Description",
+          deduction: "-5 pts",
+          severity: "LOW",
+          condition: "Repository metadata lacks a description for discoverability.",
+        },
+        {
+          check: "Missing Topics / Tags",
+          deduction: "-5 pts",
+          severity: "LOW",
+          condition: "Repository has no topics defined for search indexing.",
+        },
+      ],
+    },
+    capsAndOverrides: "Clamped at minimum 0.0, maximum 100.0.",
+    engineFile: "collectors/configuration.py",
+  },
+};
+
 // ── Category score bar ────────────────────────────────────────────────────
 
 interface CategoryBarProps {
   label: string;
+  categoryKey: string;
   score: number;
   color: string;
+  shortDesc: string;
+  onOpenInfo: (key: string) => void;
 }
 
-function CategoryBar({ label, score, color }: CategoryBarProps) {
+function CategoryBar({
+  label,
+  categoryKey,
+  score,
+  color,
+  shortDesc,
+  onOpenInfo,
+}: CategoryBarProps) {
   return (
-    <div className="space-y-1">
-      <div className="flex justify-between text-xs">
-        <span className="text-gray-600 font-medium">{label}</span>
-        <span className="font-bold" style={{ color }}>
+    <div className="space-y-1.5 p-2 rounded-xl hover:bg-gray-50/80 transition-colors">
+      <div className="flex justify-between items-start text-xs">
+        <div className="min-w-0 pr-2">
+          <div className="flex items-center gap-1.5">
+            <span className="text-gray-800 font-semibold">{label}</span>
+            <button
+              type="button"
+              onClick={() => onOpenInfo(categoryKey)}
+              className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-800 text-[10px] font-bold transition-all border border-blue-200 cursor-pointer shrink-0"
+              title={`View ${label} details & calculation logic`}
+              aria-label={`View ${label} details`}
+            >
+              i
+            </button>
+          </div>
+          <p className="text-[11px] text-gray-500 mt-0.5 leading-snug line-clamp-1">
+            {shortDesc}
+          </p>
+        </div>
+        <span className="font-bold text-sm shrink-0" style={{ color }}>
           {Math.round(score)}
         </span>
       </div>
@@ -69,6 +439,7 @@ function CategoryBar({ label, score, color }: CategoryBarProps) {
   );
 }
 
+
 // ── Tabs ─────────────────────────────────────────────────────────────────
 
 type Tab = "findings" | "recommendations" | "actions";
@@ -79,11 +450,13 @@ export default function RepositoryDetailPage() {
   const { id } = useParams<{ id: string }>();
 
   const [activeTab, setActiveTab] = useState<Tab>("findings");
+  const [selectedCategoryInfo, setSelectedCategoryInfo] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   const [scanMsg, setScanMsg] = useState<string | null>(null);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [executingId, setExecutingId] = useState<string | null>(null);
   const [activeScanId, setActiveScanId] = useState<string | null>(null);
+
 
   useEffect(() => {
     if (status === "unauthenticated") router.replace("/auth/signin");
@@ -327,19 +700,22 @@ export default function RepositoryDetailPage() {
                     return found ? found.raw_score : 0;
                   };
                   return [
-                    { label: "Documentation", score: getCategoryScore("DOCUMENTATION", hs.documentation_score) },
-                    { label: "Security",      score: getCategoryScore("SECURITY", hs.security_score) },
-                    { label: "Code Quality",  score: getCategoryScore("CODE_QUALITY", hs.code_quality_score) },
-                    { label: "Dependencies",  score: getCategoryScore("DEPENDENCIES", hs.dependency_score) },
-                    { label: "Issues",        score: getCategoryScore("ISSUES", hs.issues_score) },
-                    { label: "Pull Requests", score: getCategoryScore("PULL_REQUESTS", hs.pull_requests_score) },
-                    { label: "Activity",      score: getCategoryScore("ACTIVITY", hs.activity_score) },
-                    { label: "Configuration", score: getCategoryScore("CONFIGURATION", hs.configuration_score) },
-                  ].map(({ label, score }) => (
+                    { key: "DOCUMENTATION", label: "Documentation", score: getCategoryScore("DOCUMENTATION", hs.documentation_score) },
+                    { key: "SECURITY",      label: "Security",      score: getCategoryScore("SECURITY", hs.security_score) },
+                    { key: "CODE_QUALITY",  label: "Code Quality",  score: getCategoryScore("CODE_QUALITY", hs.code_quality_score) },
+                    { key: "DEPENDENCIES",  label: "Dependencies",  score: getCategoryScore("DEPENDENCIES", hs.dependency_score) },
+                    { key: "ISSUES",        label: "Issues",        score: getCategoryScore("ISSUES", hs.issues_score) },
+                    { key: "PULL_REQUESTS", label: "Pull Requests", score: getCategoryScore("PULL_REQUESTS", hs.pull_requests_score) },
+                    { key: "ACTIVITY",      label: "Activity",      score: getCategoryScore("ACTIVITY", hs.activity_score) },
+                    { key: "CONFIGURATION", label: "Configuration", score: getCategoryScore("CONFIGURATION", hs.configuration_score) },
+                  ].map(({ key, label, score }) => (
                     <CategoryBar
-                      key={label}
+                      key={key}
+                      categoryKey={key}
                       label={label}
                       score={score}
+                      shortDesc={CATEGORY_DETAILS[key]?.shortDesc || ""}
+                      onOpenInfo={(k) => setSelectedCategoryInfo(k)}
                       color={scoreBandHex(
                         score >= 90 ? "EXCELLENT" :
                         score >= 75 ? "GOOD" :
@@ -348,6 +724,7 @@ export default function RepositoryDetailPage() {
                       )}
                     />
                   ));
+
                 })()}
               </div>
             ) : (
@@ -357,7 +734,16 @@ export default function RepositoryDetailPage() {
         </MotionCard>
       </div>
 
+      {/* Interactive Tech Stack Visualizer */}
+      <TechStackVisualizer
+        repo={repo}
+        health={health}
+        findings={findingsData?.items}
+        hasNoCode={hasNoCode}
+      />
+
       {/* AI Executive Summary & Risk Analysis */}
+
       {aiAnalysis?.result && (
         <MotionCard className="mb-6 p-6 border-indigo-100 bg-gradient-to-br from-white via-indigo-50/20 to-purple-50/10">
           <div className="flex items-center justify-between gap-2 mb-3">
@@ -588,6 +974,163 @@ export default function RepositoryDetailPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Category Calculation & Info Modal */}
+      <AnimatePresence>
+        {selectedCategoryInfo && CATEGORY_DETAILS[selectedCategoryInfo] && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs"
+            onClick={() => setSelectedCategoryInfo(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 12 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+              className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {(() => {
+                const item = CATEGORY_DETAILS[selectedCategoryInfo];
+                const catScore = (() => {
+                  const found = hs?.categories?.find(
+                    (c) => c.category?.toUpperCase() === item.key.toUpperCase()
+                  );
+                  return found ? found.raw_score : 0;
+                })();
+                return (
+                  <div>
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/80">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">{item.icon}</span>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-base font-bold text-gray-900">
+                              {item.label}
+                            </h3>
+                            <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-brand-50 text-brand-700 border border-brand-200">
+                              Weight: {item.weight}%
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            Category Score:{" "}
+                            <span className="font-bold text-gray-800">
+                              {Math.round(catScore)} / 100
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setSelectedCategoryInfo(null)}
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-200/60 transition-colors text-sm font-semibold cursor-pointer"
+                        aria-label="Close"
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    {/* Scrollable Content Body */}
+                    <div className="p-6 max-h-[62vh] overflow-y-auto space-y-5 text-xs text-gray-600">
+                      {/* What this category does */}
+                      <div>
+                        <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+                          What this category monitors & evaluates
+                        </h4>
+                        <p className="text-gray-700 text-xs leading-relaxed bg-gray-50 p-3 rounded-xl border border-gray-100">
+                          {item.summary}
+                        </p>
+                      </div>
+
+                      {/* Calculation logic */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                            How it is calculated (Backend Logic)
+                          </h4>
+                          <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                            Base: {item.calculationLogic.baseScore} pts
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {item.calculationLogic.deductions.map((rule, idx) => (
+                            <div
+                              key={idx}
+                              className="p-3 rounded-xl border border-gray-100 bg-white hover:border-gray-200 transition-colors shadow-2xs"
+                            >
+                              <div className="flex items-center justify-between gap-2 mb-1">
+                                <span className="font-semibold text-gray-900 text-xs">
+                                  {rule.check}
+                                </span>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <span
+                                    className={cn(
+                                      "px-1.5 py-0.5 rounded text-[10px] font-bold",
+                                      rule.severity === "CRITICAL"
+                                        ? "bg-red-50 text-red-700 border border-red-200"
+                                        : rule.severity === "HIGH"
+                                        ? "bg-orange-50 text-orange-700 border border-orange-200"
+                                        : rule.severity === "MEDIUM"
+                                        ? "bg-yellow-50 text-yellow-800 border border-yellow-200"
+                                        : rule.severity === "LOW"
+                                        ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                        : "bg-gray-100 text-gray-600 border border-gray-200"
+                                    )}
+                                  >
+                                    {rule.severity}
+                                  </span>
+                                  <span className="font-bold text-red-600 text-xs">
+                                    {rule.deduction}
+                                  </span>
+                                </div>
+                              </div>
+                              <p className="text-gray-500 text-[11px] leading-normal">
+                                {rule.condition}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Safety caps */}
+                      {item.capsAndOverrides && (
+                        <div>
+                          <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+                            Safety Caps & Overrides
+                          </h4>
+                          <p className="text-amber-900 bg-amber-50/90 p-3 rounded-xl border border-amber-200 text-xs leading-relaxed">
+                            ⚠️ {item.capsAndOverrides}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Engine implementation reference */}
+                      <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-400">
+                        <span>Backend Engine Collector:</span>
+                        <code className="text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded font-mono text-[10px]">
+                          {item.engineFile}
+                        </code>
+                      </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="px-6 py-3 border-t border-gray-100 bg-gray-50/50 flex justify-end">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setSelectedCategoryInfo(null)}
+                      >
+                        Close
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })()}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </DashboardLayout>
   );
 }
+

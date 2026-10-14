@@ -8,19 +8,33 @@ Never place widget implementation files directly at the root of `widgets/`. Ever
 
 ```text
 frontend/src/components/widgets/
-├── <widget-name>/               # Dedicated folder per widget (e.g., clock, weather, notes)
+├── controller/                  # Main switch & visibility manager for all widgets
+│   ├── WidgetController.tsx     # Master switch & granular visibility controls UI
+│   ├── WidgetContext.tsx        # Context & persistence hook for widget state
+│   ├── registry.ts              # Central registry of available widgets
+│   ├── types.ts                 # Controller type definitions
+│   └── index.ts                 # Controller barrel export
+├── <widget-name>/               # Dedicated folder per widget (e.g., clock, theme-toggle)
 │   ├── <WidgetName>Widget.tsx   # Core widget component
 │   ├── types.ts                 # Type definitions & interfaces specific to this widget
 │   ├── <helpers>.ts             # Specialized helpers/utilities (e.g., timezones.ts)
 │   └── index.ts                 # Barrel export for the widget folder
-├── WidgetContainer.tsx          # Global orchestrator rendering all active widgets
+├── WidgetContainer.tsx          # Global orchestrator rendering active widgets & controller
 └── index.ts                     # Central barrel export for the widgets directory
 ```
 
-## 2. Global Integration
+## 2. Global Integration & Controller
 
 - **Container Mounting**: `WidgetContainer.tsx` is mounted globally in `frontend/src/app/layout.tsx` within `<AuthProvider>`, ensuring widgets persist seamlessly across route changes and public/authenticated views.
-- **Registration**: When a new widget is created, export it from its local `index.ts`, register it in `WidgetContainer.tsx`, and re-export it in `frontend/src/components/widgets/index.ts`.
+- **Widget Controller (Main Switch)**: Located at `frontend/src/components/widgets/controller/`, the controller provides:
+  1. A **Master Switch** to turn on/off all floating widgets globally across the application.
+  2. **Granular Toggles** allowing users to selectively enable/disable specific widgets (e.g., only show clock, or only show theme toggle).
+  3. **Layout Reset** to restore all widget positions back to their default navbar docking points.
+- **Registration**: When a new widget is created:
+  1. Export it from its local `index.ts`.
+  2. Register its metadata in `frontend/src/components/widgets/controller/registry.ts`.
+  3. Render it conditionally in `WidgetContainer.tsx` using `isWidgetVisible("<widgetId>")`.
+  4. Re-export it in `frontend/src/components/widgets/index.ts`.
 
 ## 3. Widget Design & Implementation Standards
 

@@ -74,6 +74,12 @@ export function ClockWidget() {
     } catch {
       // Ignore localStorage errors
     }
+
+    const handleResetPositions = () => {
+      setPosition(null);
+    };
+    window.addEventListener("gh_health_reset_widget_positions", handleResetPositions);
+    return () => window.removeEventListener("gh_health_reset_widget_positions", handleResetPositions);
   }, []);
 
   // 2. Save settings whenever changed
