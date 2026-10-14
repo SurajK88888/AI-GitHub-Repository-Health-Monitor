@@ -114,7 +114,7 @@ class ScanContext:
 
     def has_source_code(self) -> bool:
         """Return True if any recognizable source code files or package manifests exist."""
-        _CODE_EXTENSIONS = (
+        code_extensions = (
             ".py",
             ".js",
             ".jsx",
@@ -160,7 +160,7 @@ class ScanContext:
             ".nim",
             ".ipynb",
         )
-        _PROJECT_MANIFESTS = (
+        project_manifests = (
             "package.json",
             "pyproject.toml",
             "requirements.txt",
@@ -177,10 +177,10 @@ class ScanContext:
         )
         for path in self.file_paths:
             p_lower = path.lower()
-            if p_lower.endswith(_CODE_EXTENSIONS):
+            if p_lower.endswith(code_extensions):
                 return True
             filename = p_lower.split("/")[-1]
-            if filename in _PROJECT_MANIFESTS:
+            if filename in project_manifests:
                 return True
         return False
 

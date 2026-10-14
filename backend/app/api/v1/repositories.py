@@ -91,9 +91,9 @@ async def _attach_latest_health_scores(
     )
     hs_result = await db.execute(stmt)
     latest_scores: dict[UUID, HealthScore] = {}
-    for hs in hs_result.scalars().all():
-        if hs.repository_id not in latest_scores:
-            latest_scores[hs.repository_id] = hs
+    for score in hs_result.scalars().all():
+        if score.repository_id not in latest_scores:
+            latest_scores[score.repository_id] = score
 
     # Query open findings for empty / no-source-code repositories
     finding_stmt = (
@@ -112,15 +112,15 @@ async def _attach_latest_health_scores(
     for r in repos:
         resp = RepositoryResponse.model_validate(r)
         resp.has_no_code = r.id in empty_repo_ids
-        hs = latest_scores.get(r.id)
-        if hs:
+        latest_hs = latest_scores.get(r.id)
+        if latest_hs:
             resp.latest_health_score = {
-                "id": str(hs.id),
-                "repository_id": str(hs.repository_id),
-                "scan_id": str(hs.scan_id),
-                "overall_score": hs.overall_score,
-                "score_band": ScoreBand.for_score(hs.overall_score).value,
-                "calculated_at": hs.created_at.isoformat() if hs.created_at else None,
+                "id": str(latest_hs.id),
+                "repository_id": str(latest_hs.repository_id),
+                "scan_id": str(latest_hs.scan_id),
+                "overall_score": latest_hs.overall_score,
+                "score_band": ScoreBand.for_score(latest_hs.overall_score).value,
+                "calculated_at": latest_hs.created_at.isoformat() if latest_hs.created_at else None,
             }
         responses.append(resp)
     return responses
@@ -165,7 +165,7 @@ async def list_repositories(
     # Paginated results
     offset = (page - 1) * page_size
     result = await db.execute(query.offset(offset).limit(page_size))
-    repos = result.scalars().all()
+    repos = list(result.scalars().all())
     items = await _attach_latest_health_scores(db, repos)
 
     return PaginatedResponse(
