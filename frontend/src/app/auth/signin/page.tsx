@@ -4,6 +4,7 @@ import { Suspense, useState, useEffect } from "react";
 import { signIn, useSession } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { GlobalNavbar } from "@/components/navbar";
 
 function SignInContent() {
   const params = useSearchParams();
@@ -172,6 +173,19 @@ function SignInContent() {
           )}
           {loading ? "Connecting…" : "Continue with GitHub"}
         </button>
+        {/* Switch Account Helper */}
+        {/*
+        <div style={{ textAlign: "center", marginTop: 12 }}>
+          <a
+            href="https://github.com/logout"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ fontSize: 12, color: "#6b7280", textDecoration: "underline" }}
+          >
+            Want to use a different GitHub account? Sign out of GitHub first ↗
+          </a>
+        </div>
+        */}
 
         <p style={{ textAlign: "center", fontSize: 11, color: "#d1d5db", marginTop: 14 }}>
           By signing in, you agree to our terms of service
@@ -193,8 +207,10 @@ export default function SignInPage() {
         alignItems: "center",
         justifyContent: "center",
         padding: "24px",
+        paddingTop: 84, // ← add this (60px navbar + 24px breathing room)
       }}
     >
+      <GlobalNavbar />
       <Suspense
         fallback={
           <div style={{ textAlign: "center", color: "#9ca3af", fontSize: 14 }}>

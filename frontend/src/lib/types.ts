@@ -68,24 +68,36 @@ export interface Repository {
   updated_at: string;
   // Joined from latest scan/health
   latest_health_score?: HealthScore | null;
+  has_no_code?: boolean;
+}
+
+
+export interface HealthScoreCategory {
+  category: string;
+  raw_score: number;
+  weight?: number;
+  weighted_score?: number;
 }
 
 export interface HealthScore {
-  id: string;
-  repository_id: string;
-  scan_id: string;
+  id?: string;
+  repository_id?: string;
+  scan_id?: string;
   overall_score: number;
   score_band: ScoreBand;
-  documentation_score: number;
-  security_score: number;
-  code_quality_score: number;
-  dependency_score: number;
-  issues_score: number;
-  pull_requests_score: number;
-  activity_score: number;
-  configuration_score: number;
+  documentation_score?: number;
+  security_score?: number;
+  code_quality_score?: number;
+  dependency_score?: number;
+  issues_score?: number;
+  pull_requests_score?: number;
+  activity_score?: number;
+  configuration_score?: number;
+  categories?: HealthScoreCategory[];
+  previous_score?: number | null;
+  score_delta?: number | null;
   calculated_at: string;
-  config_version: number;
+  config_version?: number;
 }
 
 export interface HealthScoreHistory {
@@ -96,8 +108,9 @@ export interface HealthScoreHistory {
 export interface Scan {
   id: string;
   repository_id: string;
+  repository_name?: string | null;
   status: ScanStatus;
-  triggered_by: string | null;
+  triggered_by?: string | null;
   started_at: string | null;
   completed_at: string | null;
   error_message: string | null;
@@ -113,8 +126,9 @@ export interface Finding {
   title: string;
   description: string;
   severity: FindingSeverity;
+  status?: string;
   resource: string | null;
-  evidence: string | null;
+  evidence: Record<string, unknown> | string | null;
   fingerprint: string;
   created_at: string;
 }
@@ -122,29 +136,65 @@ export interface Finding {
 export interface Recommendation {
   id: string;
   repository_id: string;
-  scan_id: string;
+  scan_id?: string;
   finding_id: string | null;
   title: string;
   description: string;
-  action_type: string;
-  priority: number;
+  action_type?: string;
+  recommended_action?: {
+    action_type: string;
+    parameters?: Record<string, unknown>;
+  } | null;
+  priority: string | number;
   status: RecommendationStatus;
   created_at: string;
 }
 
 export interface AIAction {
   id: string;
-  recommendation_id: string;
+  workspace_id?: string;
+  recommendation_id?: string | null;
   repository_id: string;
   action_type: string;
   status: AIActionStatus;
-  pr_url: string | null;
-  branch_name: string | null;
-  approved_by: string | null;
-  executed_at: string | null;
-  completed_at: string | null;
-  error_message: string | null;
+  approval_required?: boolean;
+  approved_at?: string | null;
+  pr_url?: string | null;
+  branch_name?: string | null;
+  result?: {
+    pull_request_url?: string;
+    branch_name?: string;
+    target_file?: string;
+    commit_message?: string;
+    [key: string]: unknown;
+  } | null;
+  approved_by?: string | null;
+  executed_at?: string | null;
+  completed_at?: string | null;
+  error_message?: string | null;
   created_at: string;
+}
+
+export interface AIAnalysis {
+  id: string;
+  repository_id: string;
+  scan_id?: string | null;
+  analysis_type: string;
+  provider: string;
+  model: string;
+  prompt_version: string;
+  status: "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
+  result?: {
+    summary?: string;
+    key_risks?: string[];
+    recommendations?: Array<{
+      title: string;
+      priority: string;
+      category: string;
+    }>;
+  } | null;
+  created_at: string;
+  completed_at?: string | null;
 }
 
 export interface Notification {

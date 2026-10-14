@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { GlobalNavbar } from "@/components/navbar";
 
 const FEATURES = [
   {
@@ -41,51 +42,14 @@ const STATS = [
 export default function HomePage() {
   const { status } = useSession();
   const isAuthenticated = status === "authenticated";
-  const isLoading = status === "loading";
 
   return (
     <div className="min-h-screen" style={{ background: "#f7f7fb" }}>
-      {/* Top nav */}
-      <nav
-        style={{
-          background: "rgba(255,255,255,0.95)",
-          borderBottom: "1px solid #e5e7eb",
-          backdropFilter: "blur(12px)",
-          position: "sticky",
-          top: 0,
-          zIndex: 40,
-        }}
-      >
-        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px", height: 60, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg,#8b5cf6,#6366f1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ color: "white", fontSize: 14 }}>⬡</span>
-            </div>
-            <span style={{ fontWeight: 700, color: "#111827", fontSize: 15 }}>Health Monitor</span>
-          </div>
-          <Link href={isAuthenticated ? "/dashboard" : "/auth/signin"}>
-            <button
-              style={{
-                background: "linear-gradient(135deg,#8b5cf6,#6366f1)",
-                color: "white",
-                border: "none",
-                borderRadius: 8,
-                padding: "8px 18px",
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: "pointer",
-                boxShadow: "0 2px 8px rgba(139,92,246,0.3)",
-                opacity: isLoading ? 0.6 : 1,
-              }}
-            >
-              {isAuthenticated ? "Go to Dashboard →" : "Sign in with GitHub →"}
-            </button>
-          </Link>
-        </div>
-      </nav>
+      {/* Global Navbar — isolated module at src/components/navbar/ */}
+      <GlobalNavbar />
 
-      {/* Hero */}
-      <section style={{ maxWidth: 1100, margin: "0 auto", padding: "72px 24px 48px" }}>
+      {/* Hero — pt-[60px] offsets the fixed GlobalNavbar height */}
+      <section style={{ maxWidth: 1100, margin: "0 auto", padding: "132px 24px 48px" }}>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

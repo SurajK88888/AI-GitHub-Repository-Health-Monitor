@@ -195,3 +195,7 @@ class ScoreBand(enum.StrEnum):
         if score >= 40:
             return cls.POOR
         return cls.CRITICAL
+
+    @classmethod
+    def from_score(cls, score: float) -> ScoreBand:
+        return cls.for_score(score)

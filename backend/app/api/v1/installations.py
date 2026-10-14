@@ -150,8 +150,8 @@ async def discover_installations(
             is_match = True
         elif current_user.email and acc_login and acc_login in current_user.email.lower():
             is_match = True
-        elif len(all_installations) == 1:
-            is_match = True
+        # elif len(all_installations) == 1:
+        #     is_match = True
 
         if is_match:
             matched_installations.append(inst)

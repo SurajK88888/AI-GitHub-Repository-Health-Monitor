@@ -24,6 +24,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.enums import AIAnalysisStatus, AIAnalysisType, FindingStatus, RecommendationStatus
 from app.models.ai_analysis import AIAnalysis
 from app.models.finding import Finding
@@ -31,13 +32,13 @@ from app.models.health_score import HealthScore, HealthScoreCategory
 from app.models.recommendation import Recommendation
 from app.models.repository import Repository
 from app.models.scan import Scan
-from app.services.ai.client import GeminiClientError, call_gemini
+from app.services.ai.client import AIClientError, GeminiClientError, call_ai
 from app.services.ai.prompts import PROMPT_VERSION, SYSTEM_INSTRUCTION, build_analysis_prompt
 
 logger = logging.getLogger(__name__)
 
 _MAX_FINDINGS_IN_PROMPT = 10
-_GEMINI_MODEL = "gemini-1.5-flash"
+_DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 _VALID_PRIORITIES = {"CRITICAL", "HIGH", "MEDIUM", "LOW"}
 _VALID_CATEGORIES = {
     "SECURITY",
@@ -93,9 +94,46 @@ def _parse_recommendations(
             logger.warning("Skipping recommendation with missing title/description")
             continue
 
+        category = str(item.get("category", "")).upper() or "CONFIGURATION"
+        raw_action_type = str(item.get("action_type", "")).strip().upper()
+
+        # Determine concrete actionable type if supported by remediation templates
+        valid_action_types = {
+            "CREATE_SECURITY_POLICY",
+            "ENABLE_DEPENDABOT",
+            "ADD_CI_WORKFLOW",
+            "CREATE_README",
+            "CREATE_CONTRIBUTING",
+            "MANUAL_REVIEW",
+        }
+        if raw_action_type in valid_action_types:
+            action_type = raw_action_type
+        else:
+            t_lower = title.lower()
+            if "security.md" in t_lower or ("security" in t_lower and "policy" in t_lower):
+                action_type = "CREATE_SECURITY_POLICY"
+            elif "dependabot" in t_lower:
+                action_type = "ENABLE_DEPENDABOT"
+            elif (
+                "workflow" in t_lower
+                or "ci pipeline" in t_lower
+                or "continuous integration" in t_lower
+            ):
+                action_type = "ADD_CI_WORKFLOW"
+            elif "readme" in t_lower:
+                action_type = "CREATE_README"
+            elif "contributing" in t_lower:
+                action_type = "CREATE_CONTRIBUTING"
+            elif category == "SECURITY":
+                action_type = "CREATE_SECURITY_POLICY"
+            elif category == "DOCUMENTATION":
+                action_type = "CREATE_README"
+            else:
+                action_type = "MANUAL_REVIEW"
+
         recommended_action: dict[str, Any] = {
-            "action_type": "REVIEW",
-            "category": str(item.get("category", "")).upper() or "CONFIGURATION",
+            "action_type": action_type,
+            "category": category,
             "ai_generated": True,
         }
 
@@ -144,13 +182,24 @@ async def run_ai_analysis(
         return None
 
     # ── Create PENDING AIAnalysis record ───────────────────────────────────
+    settings = get_settings()
+    active_provider = getattr(settings, "ai_provider", "google") or "google"
+    if active_provider == "groq":
+        active_model = (
+            getattr(settings, "groq_model", "llama-3.3-70b-versatile") or "llama-3.3-70b-versatile"
+        )
+        provider_name = "groq"
+    else:
+        active_model = getattr(settings, "ai_model", _DEFAULT_GEMINI_MODEL) or _DEFAULT_GEMINI_MODEL
+        provider_name = "google"
+
     analysis = AIAnalysis(
         id=uuid.uuid4(),
         repository_id=scan.repository_id,
         scan_id=scan_id,
         analysis_type=AIAnalysisType.REPOSITORY_SUMMARY.value,
-        provider="google",
-        model=_GEMINI_MODEL,
+        provider=provider_name,
+        model=active_model,
         prompt_version=PROMPT_VERSION,
         status=AIAnalysisStatus.RUNNING.value,
         created_at=datetime.now(UTC),
@@ -223,11 +272,12 @@ async def run_ai_analysis(
             top_findings=sanitized_findings,
         )
 
-        # ── Call Gemini ────────────────────────────────────────────────────
-        ai_output = await call_gemini(
+        # ── Call AI Provider ───────────────────────────────────────────────
+        ai_output = await call_ai(
             system_instruction=SYSTEM_INSTRUCTION,
             user_prompt=prompt,
-            model=_GEMINI_MODEL,
+            provider=provider_name,
+            model=active_model,
         )
 
         # ── Parse recommendations ──────────────────────────────────────────
@@ -252,13 +302,15 @@ async def run_ai_analysis(
         }
         await db.commit()
         logger.info(
-            "AI analysis completed for scan %s — %d recommendations",
+            "AI analysis completed for scan %s via %s (%s) — %d recommendations",
             scan_id,
+            provider_name,
+            active_model,
             len(new_recommendations),
         )
         return analysis
 
-    except GeminiClientError as exc:
+    except (GeminiClientError, AIClientError) as exc:
         logger.warning("AI analysis skipped for scan %s: %s", scan_id, exc)
         analysis.status = AIAnalysisStatus.SKIPPED.value
         analysis.completed_at = datetime.now(UTC)

@@ -31,6 +31,7 @@ class ScanResponse(APIModel):
     started_at: datetime | None = None
     completed_at: datetime | None = None
     error_message: str | None = None
+    repository_name: str | None = None
 
 
 class PaginatedScanResponse(PaginatedResponse):

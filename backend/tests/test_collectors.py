@@ -191,6 +191,13 @@ class TestCodeQualityCollector:
         count_metric = next(m for m in result.metrics if m.metric_name == "ci_workflow_count")
         assert count_metric.metric_value == 2.0
 
+    def test_empty_repo_generates_no_source_code_finding(self) -> None:
+        ctx = _ctx(file_paths=["README.md"])
+        result = self.collector.collect(ctx)
+        assert any("no source code" in f.title.lower() for f in result.findings)
+        score_metric = next(m for m in result.metrics if m.metric_name == "code_quality_score")
+        assert score_metric.metric_value == 0.0
+
 
 # ═════════════════════════════════════════════════════════════════════════════
 # Dependencies collector
@@ -213,6 +220,19 @@ class TestDependenciesCollector:
     def test_no_manifests_produces_informational(self) -> None:
         ctx = _ctx(file_paths=["README.md"])
         result = self.collector.collect(ctx)
+        assert any(f.severity == "INFORMATIONAL" for f in result.findings)
+
+    def test_empty_repo_dependencies_score_is_zero(self) -> None:
+        ctx = _ctx(file_paths=["README.md"])
+        result = self.collector.collect(ctx)
+        score_metric = next(m for m in result.metrics if m.metric_name == "dependencies_score")
+        assert score_metric.metric_value == 0.0
+
+    def test_no_manifests_with_source_code_retains_default_score(self) -> None:
+        ctx = _ctx(file_paths=["main.py"])
+        result = self.collector.collect(ctx)
+        score_metric = next(m for m in result.metrics if m.metric_name == "dependencies_score")
+        assert score_metric.metric_value == 100.0
         assert any(f.severity == "INFORMATIONAL" for f in result.findings)
 
     def test_manifest_count_metric(self) -> None:

@@ -7,3 +7,5 @@ Use clear names and simple control flow. Keep functions and modules focused. Rem
 Validate all untrusted input at boundaries. Make errors actionable and safe. Add or update documentation whenever behavior, setup, configuration, or a public interface changes.
 
 Do not silently change user-visible behavior or data semantics.
+
+Frontend widgets must follow `.agents/rules/widgets.md` — maintain dedicated per-widget subfolders under `frontend/src/components/widgets/<name>/` and register them via `WidgetContainer.tsx`.

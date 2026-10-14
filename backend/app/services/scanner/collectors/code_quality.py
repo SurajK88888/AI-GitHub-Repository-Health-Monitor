@@ -83,6 +83,31 @@ class CodeQualityCollector(BaseCollector):
         result = CollectorResult()
         score = 100.0
 
+        # ── Empty repository / No source code check ───────────────────────
+        if not ctx.has_source_code():
+            ci_workflows = ctx.matching_paths(".github/workflows")
+            has_ci = len(ci_workflows) > 0
+            result.metrics.append(
+                MetricData(_CAT, "ci_workflow_count", float(len(ci_workflows)), "count")
+            )
+            result.metrics.append(MetricData(_CAT, "has_ci", 1.0 if has_ci else 0.0, "bool"))
+            result.metrics.append(MetricData(_CAT, "has_tests", 0.0, "bool"))
+            result.metrics.append(MetricData(_CAT, "has_linter_config", 0.0, "bool"))
+            result.metrics.append(MetricData(_CAT, "code_quality_score", 0.0, "score"))
+            result.findings.append(
+                FindingData(
+                    category=_CAT,
+                    severity="HIGH",
+                    title="No source code detected (Empty Repository)",
+                    description=(
+                        "The repository contains no recognizable source code files or package manifests. "
+                        "Automated tests, CI/CD pipelines, and code quality tools cannot be evaluated."
+                    ),
+                    fingerprint=_fp("no_source_code"),
+                )
+            )
+            return result
+
         # ── CI/CD workflows ───────────────────────────────────────────────
         ci_workflows = ctx.matching_paths(".github/workflows")
         has_ci = len(ci_workflows) > 0

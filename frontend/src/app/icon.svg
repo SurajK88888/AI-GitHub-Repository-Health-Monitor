@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8B5CF6"/>
+      <stop offset="100%" stop-color="#6366F1"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#E0E7FF"/>
+    </linearGradient>
+  </defs>
+  <!-- Background rounded squircle -->
+  <rect width="32" height="32" rx="8" fill="url(#bg)"/>
+  
+  <!-- Outer Hexagon -->
+  <path d="M16 6 L24 10.6 L24 21.4 L16 26 L8 21.4 L8 10.6 Z" 
+        fill="none" 
+        stroke="url(#glow)" 
+        stroke-width="2.2" 
+        stroke-linejoin="round"/>
+        
+  <!-- Pulse / Health Line inside -->
+  <path d="M11 16 H13.5 L15 12 L17 20 L18.5 16 H21" 
+        fill="none" 
+        stroke="#FFFFFF" 
+        stroke-width="2" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"/>
+</svg>

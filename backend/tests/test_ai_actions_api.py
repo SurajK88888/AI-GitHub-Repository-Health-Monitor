@@ -111,7 +111,13 @@ async def test_execute_action_unauthenticated_returns_401(client: AsyncClient) -
 async def test_list_actions_no_workspace_returns_400(client: AsyncClient) -> None:
     token = _make_token()
     repo_id = uuid.uuid4()
-    with patch("app.services.auth.get_settings") as mock_cfg:
+    with (
+        patch("app.services.auth.get_settings") as mock_cfg,
+        patch(
+            "app.services.user_service.get_or_create_workspace",
+            side_effect=RuntimeError("no workspace"),
+        ),
+    ):
         mock_cfg.return_value.nextauth_secret = NEXTAUTH_SECRET
         response = await client.get(
             f"{BASE_URL}/repositories/{repo_id}/actions",

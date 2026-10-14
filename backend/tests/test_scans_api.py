@@ -93,7 +93,13 @@ async def test_trigger_scan_no_workspace_returns_400(client: AsyncClient) -> Non
     token = _make_token()  # no workspace_id
     repo_id = uuid.uuid4()
 
-    with patch("app.services.auth.get_settings") as mock_cfg:
+    with (
+        patch("app.services.auth.get_settings") as mock_cfg,
+        patch(
+            "app.services.user_service.get_or_create_workspace",
+            side_effect=RuntimeError("no workspace"),
+        ),
+    ):
         mock_cfg.return_value.nextauth_secret = NEXTAUTH_SECRET
         response = await client.post(
             f"{BASE_URL}/repositories/{repo_id}/scans",
@@ -150,3 +156,41 @@ async def test_list_scans_authenticated_returns_200(client: AsyncClient) -> None
     assert data["total"] == 0
     assert data["has_next"] is False
     assert data["items"] == []
+
+
+@pytest.mark.asyncio
+async def test_list_workspace_scans_authenticated_returns_200(client: AsyncClient) -> None:
+    workspace_id = uuid.uuid4()
+    token = _make_token(workspace_id=workspace_id)
+
+    mock_db = AsyncMock()
+    res_count = MagicMock()
+    res_count.scalar_one.return_value = 0
+
+    res_rows = MagicMock()
+    res_rows.all.return_value = []
+
+    mock_db.execute = AsyncMock(side_effect=[res_count, res_rows])
+
+    from app.database import get_db
+    from app.main import app
+
+    async def fake_get_db():
+        yield mock_db
+
+    app.dependency_overrides[get_db] = fake_get_db
+
+    try:
+        with patch("app.services.auth.get_settings") as mock_cfg:
+            mock_cfg.return_value.nextauth_secret = NEXTAUTH_SECRET
+            response = await client.get(
+                f"{BASE_URL}/scans?limit=5",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["items"] == []
+    assert data["total"] == 0

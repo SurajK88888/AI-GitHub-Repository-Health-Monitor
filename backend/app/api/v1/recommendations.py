@@ -206,6 +206,10 @@ async def approve_recommendation(
     # Transition recommendation to APPROVED
     rec.status = RecommendationStatus.APPROVED.value
 
+    target_action_type = "RECOMMENDATION_APPROVE"
+    if rec.recommended_action and isinstance(rec.recommended_action, dict):
+        target_action_type = rec.recommended_action.get("action_type") or "RECOMMENDATION_APPROVE"
+
     # Create AIAction for full auditability
     action = AIAction(
         id=_uuid.uuid4(),
@@ -213,7 +217,7 @@ async def approve_recommendation(
         repository_id=repo.id,
         recommendation_id=rec.id,
         requested_by=current_user.user_id,
-        action_type="RECOMMENDATION_APPROVE",
+        action_type=target_action_type,
         status="APPROVED",
         approval_required=True,
         approved_at=now,

@@ -249,6 +249,7 @@ def test_parse_recommendations_missing_key() -> None:
 async def test_call_gemini_raises_when_no_api_key() -> None:
     with patch("app.services.ai.client.get_settings") as mock_settings:
         mock_settings.return_value.google_ai_api_key = ""
+        mock_settings.return_value.gemini_api_key = ""
         with pytest.raises(GeminiClientError, match="not configured"):
             await call_gemini(
                 system_instruction="sys",
@@ -275,11 +276,12 @@ async def test_call_gemini_raises_on_http_error() -> None:
             mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
             mock_client.post = AsyncMock(return_value=mock_response)
 
-            with pytest.raises(GeminiClientError, match="HTTP 429"):
-                await call_gemini(
-                    system_instruction="sys",
-                    user_prompt="user",
-                )
+            with patch("asyncio.sleep", new_callable=AsyncMock):
+                with pytest.raises(GeminiClientError, match="HTTP 429"):
+                    await call_gemini(
+                        system_instruction="sys",
+                        user_prompt="user",
+                    )
 
 
 @pytest.mark.asyncio
@@ -331,3 +333,55 @@ async def test_call_gemini_success_returns_parsed_dict() -> None:
             )
 
     assert result == expected
+
+
+@pytest.mark.asyncio
+async def test_call_groq_raises_when_no_api_key() -> None:
+    from app.services.ai.client import AIClientError, call_groq
+
+    with patch("app.services.ai.client.get_settings") as mock_settings:
+        mock_settings.return_value.groq_api_key = ""
+        with pytest.raises(AIClientError, match="Groq API key is not configured"):
+            await call_groq(system_instruction="sys", user_prompt="user")
+
+
+@pytest.mark.asyncio
+async def test_call_groq_success_returns_parsed_dict() -> None:
+    from app.services.ai.client import call_groq
+
+    expected = {"summary": "Groq summary", "key_risks": [], "recommendations": []}
+    with patch("app.services.ai.client.get_settings") as mock_settings:
+        mock_settings.return_value.groq_api_key = "gsk_test"
+        mock_settings.return_value.groq_model = "llama-3.3-70b-versatile"
+
+        mock_response = MagicMock()
+        mock_response.raise_for_status = MagicMock()
+        mock_response.json.return_value = {
+            "choices": [{"message": {"content": json.dumps(expected)}}]
+        }
+
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            mock_client = AsyncMock()
+            mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+            mock_client.post = AsyncMock(return_value=mock_response)
+
+            result = await call_groq(system_instruction="sys", user_prompt="user")
+
+    assert result == expected
+
+
+@pytest.mark.asyncio
+async def test_call_ai_routes_to_groq_when_provider_set() -> None:
+    from app.services.ai.client import call_ai
+
+    expected = {"summary": "AI routed"}
+    with patch("app.services.ai.client.call_groq", new_callable=AsyncMock) as mock_groq:
+        mock_groq.return_value = expected
+        result = await call_ai(
+            system_instruction="sys",
+            user_prompt="user",
+            provider="groq",
+        )
+        assert result == expected
+        mock_groq.assert_awaited_once()

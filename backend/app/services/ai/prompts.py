@@ -31,7 +31,8 @@ Return a JSON object with exactly these keys:
       "title": "<short action title>",
       "description": "<what to do and why, 1-3 sentences>",
       "priority": "<CRITICAL|HIGH|MEDIUM|LOW>",
-      "category": "<SECURITY|CODE_QUALITY|DEPENDENCIES|DOCUMENTATION|ISSUES|PULL_REQUESTS|ACTIVITY|CONFIGURATION>"
+      "category": "<SECURITY|CODE_QUALITY|DEPENDENCIES|DOCUMENTATION|ISSUES|PULL_REQUESTS|ACTIVITY|CONFIGURATION>",
+      "action_type": "<CREATE_SECURITY_POLICY|ENABLE_DEPENDABOT|ADD_CI_WORKFLOW|CREATE_README|CREATE_CONTRIBUTING|MANUAL_REVIEW>"
     }
   ]
 }

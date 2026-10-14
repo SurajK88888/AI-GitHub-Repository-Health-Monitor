@@ -18,14 +18,16 @@ import { MotionCard } from "@/components/ui/MotionCard";
 import { ScoreRing } from "@/components/ui/ScoreRing";
 import { ScoreBandBadge, SeverityBadge, AIActionStatusBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { TechStackVisualizer } from "@/components/repository/TechStackVisualizer";
 import {
+
   Spinner,
   SkeletonCard,
   EmptyState,
   ErrorState,
   Skeleton,
 } from "@/components/ui/Spinner";
-import { useFetch } from "@/lib/hooks";
+import { useFetch, usePoll } from "@/lib/hooks";
 import { timeAgo, scoreBandHex, cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import type {
@@ -35,22 +37,392 @@ import type {
   Finding,
   Recommendation,
   AIAction,
+  AIAnalysis,
+  Scan,
 } from "@/lib/types";
+
+// ── Category Definitions & Calculation Details ───────────────────────────
+
+interface CategoryDeduction {
+  check: string;
+  deduction: string;
+  severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";
+  condition: string;
+}
+
+interface CategoryDetail {
+  key: string;
+  label: string;
+  weight: number;
+  icon: string;
+  shortDesc: string;
+  summary: string;
+  calculationLogic: {
+    baseScore: number;
+    deductions: CategoryDeduction[];
+  };
+  capsAndOverrides?: string;
+  engineFile: string;
+}
+
+const CATEGORY_DETAILS: Record<string, CategoryDetail> = {
+  DOCUMENTATION: {
+    key: "DOCUMENTATION",
+    label: "Documentation",
+    weight: 10,
+    icon: "📄",
+    shortDesc: "README, open-source license, contributing guide & code of conduct.",
+    summary:
+      "Evaluates repository onboarding documentation, licensing clarity, and contributor guidelines to ensure developers can easily understand and contribute.",
+    calculationLogic: {
+      baseScore: 100,
+      deductions: [
+        {
+          check: "Missing README",
+          deduction: "-30 pts",
+          severity: "HIGH",
+          condition: "No README file found at the root of the repository.",
+        },
+        {
+          check: "Short README Content",
+          deduction: "-15 pts",
+          severity: "MEDIUM",
+          condition: "README exists but contains fewer than 100 characters.",
+        },
+        {
+          check: "Missing Open-Source License",
+          deduction: "-25 pts",
+          severity: "HIGH",
+          condition: "No recognized LICENSE file committed in the repository.",
+        },
+        {
+          check: "Missing Contributing Guide",
+          deduction: "-10 pts",
+          severity: "LOW",
+          condition: "No CONTRIBUTING.md found to guide community contributions.",
+        },
+        {
+          check: "Missing Code of Conduct",
+          deduction: "-5 pts",
+          severity: "LOW",
+          condition: "No CODE_OF_CONDUCT.md file defined for community standards.",
+        },
+      ],
+    },
+    capsAndOverrides:
+      "Score is clamped between 0 and 100. Open HIGH severity findings cap the category score at ≤ 60.",
+    engineFile: "collectors/documentation.py",
+  },
+  SECURITY: {
+    key: "SECURITY",
+    label: "Security",
+    weight: 20,
+    icon: "🛡️",
+    shortDesc: "Secret leaks, automated vulnerability alerts, and security policies.",
+    summary:
+      "Scans the codebase for high-risk security vulnerabilities, leaked API tokens or credentials, automated Dependabot integration, and disclosure policies.",
+    calculationLogic: {
+      baseScore: 100,
+      deductions: [
+        {
+          check: "Hardcoded Secrets Detected",
+          deduction: "-50 pts / incident",
+          severity: "CRITICAL",
+          condition:
+            "Committed AWS keys, GitHub tokens, Slack webhooks, or RSA/EC private keys.",
+        },
+        {
+          check: "Missing Dependabot Configuration",
+          deduction: "-15 pts",
+          severity: "LOW",
+          condition: "No .github/dependabot.yml found for automated vulnerability updates.",
+        },
+        {
+          check: "Missing Security Policy",
+          deduction: "-10 pts",
+          severity: "LOW",
+          condition: "No SECURITY.md file explaining responsible disclosure procedures.",
+        },
+      ],
+    },
+    capsAndOverrides:
+      "CRITICAL finding presence automatically caps the Security category score at ≤ 30.0 and caps the entire repository health score at ≤ 50.0.",
+    engineFile: "collectors/security.py",
+  },
+  CODE_QUALITY: {
+    key: "CODE_QUALITY",
+    label: "Code Quality",
+    weight: 20,
+    icon: "🧪",
+    shortDesc: "CI/CD automated pipelines, testing suites, and linter configurations.",
+    summary:
+      "Assesses engineering discipline: presence of automated CI/CD workflows, test coverage indicators, and automated code style formatters.",
+    calculationLogic: {
+      baseScore: 100,
+      deductions: [
+        {
+          check: "No Source Code / Empty Repository",
+          deduction: "Set to 0 pts",
+          severity: "HIGH",
+          condition:
+            "Repository contains no recognizable programming files or manifests. Quality tools cannot be evaluated.",
+        },
+        {
+          check: "Missing CI/CD Workflows",
+          deduction: "-30 pts",
+          severity: "HIGH",
+          condition: "No active GitHub Actions workflows located in .github/workflows/.",
+        },
+        {
+          check: "No Automated Tests Detected",
+          deduction: "-30 pts",
+          severity: "HIGH",
+          condition:
+            "No test directories (tests/, __tests__/, spec/) or test files found in tree.",
+        },
+        {
+          check: "Missing Linter / Formatter Configuration",
+          deduction: "-15 pts",
+          severity: "LOW",
+          condition:
+            "No linter configs (.eslintrc, prettier.config, pyproject.toml, .flake8, etc.) detected.",
+        },
+      ],
+    },
+    capsAndOverrides:
+      "Empty repository triggers an overall repository score safety cap at ≤ 30.0 (CRITICAL band).",
+    engineFile: "collectors/code_quality.py",
+  },
+  DEPENDENCIES: {
+    key: "DEPENDENCIES",
+    label: "Dependencies",
+    weight: 15,
+    icon: "📦",
+    shortDesc: "Package manifests, lockfiles, and deterministic reproducible builds.",
+    summary:
+      "Evaluates package manager adoption, dependency declarations, and lockfile synchronization to ensure safe, reproducible builds.",
+    calculationLogic: {
+      baseScore: 100,
+      deductions: [
+        {
+          check: "Empty Repository / No Manifests",
+          deduction: "Set to 0 pts",
+          severity: "INFO",
+          condition:
+            "No recognized dependency manifests found in an empty repository with no code.",
+        },
+        {
+          check: "Missing Committed Lockfile",
+          deduction: "-20 pts / manifest",
+          severity: "MEDIUM",
+          condition:
+            "Manifest (package.json, Pipfile, go.mod, Cargo.toml) exists without corresponding lockfile.",
+        },
+        {
+          check: "No Manifests in Codebase",
+          deduction: "0 pts",
+          severity: "INFO",
+          condition:
+            "No manifests detected on repository with code (permissible for zero-dependency scripts).",
+        },
+      ],
+    },
+    capsAndOverrides:
+      "Clamped between 0 and 100. Capped at ≤ 60 if HIGH severity findings exist.",
+    engineFile: "collectors/dependencies.py",
+  },
+  ISSUES: {
+    key: "ISSUES",
+    label: "Issues",
+    weight: 10,
+    icon: "🐛",
+    shortDesc: "Issue resolution velocity, stale backlog, and unassigned bugs.",
+    summary:
+      "Measures maintainer responsiveness and issue turnaround times by evaluating aging unaddressed tickets.",
+    calculationLogic: {
+      baseScore: 100,
+      deductions: [
+        {
+          check: "High Volume of Stale Issues",
+          deduction: "-40 pts",
+          severity: "HIGH",
+          condition: "10 or more open issues with no updates or activity in >90 days.",
+        },
+        {
+          check: "Stale Issues Detected",
+          deduction: "-20 pts",
+          severity: "MEDIUM",
+          condition: "Between 1 and 9 open issues with no activity in >90 days.",
+        },
+        {
+          check: "Unassigned Open Issues",
+          deduction: "-10 pts",
+          severity: "LOW",
+          condition: "10 or more open issues lack any assignee.",
+        },
+      ],
+    },
+    capsAndOverrides: "A clean issue backlog (0 open issues) receives a perfect 100 score.",
+    engineFile: "collectors/issues.py",
+  },
+  PULL_REQUESTS: {
+    key: "PULL_REQUESTS",
+    label: "Pull Requests",
+    weight: 10,
+    icon: "🔀",
+    shortDesc: "PR review throughput, merge latency, and abandoned draft PRs.",
+    summary:
+      "Tracks review bottlenecks, pull request turnaround time, and abandoned drafts that delay contributions.",
+    calculationLogic: {
+      baseScore: 100,
+      deductions: [
+        {
+          check: "Excessive Aging Pull Requests",
+          deduction: "-40 pts",
+          severity: "HIGH",
+          condition: "5 or more open PRs without any activity in >30 days.",
+        },
+        {
+          check: "Aging Pull Requests Detected",
+          deduction: "-20 pts",
+          severity: "MEDIUM",
+          condition: "Between 1 and 4 open PRs without any activity in >30 days.",
+        },
+        {
+          check: "Abandoned Draft Pull Requests",
+          deduction: "-10 pts",
+          severity: "LOW",
+          condition: "Open draft pull requests inactive for >60 days.",
+        },
+      ],
+    },
+    capsAndOverrides: "0 open PRs receives a default 100 score (no review bottleneck).",
+    engineFile: "collectors/pull_requests.py",
+  },
+  ACTIVITY: {
+    key: "ACTIVITY",
+    label: "Activity",
+    weight: 10,
+    icon: "📈",
+    shortDesc: "Commit frequency, maintenance recency, and contributor distribution.",
+    summary:
+      "Measures project momentum and vitality: frequency of recent commits, date of last code push, and bus-factor risk.",
+    calculationLogic: {
+      baseScore: 100,
+      deductions: [
+        {
+          check: "Zero Commits in 30 Days",
+          deduction: "-30 pts",
+          severity: "MEDIUM",
+          condition: "No commits pushed to the repository in the last 30 days.",
+        },
+        {
+          check: "Low Commit Frequency",
+          deduction: "-15 pts",
+          severity: "LOW",
+          condition: "Between 1 and 4 commits pushed in the last 30 days (5+ is active).",
+        },
+        {
+          check: "Dormant / Abandoned Repository",
+          deduction: "-30 pts",
+          severity: "HIGH",
+          condition: "Most recent repository push was more than 90 days ago.",
+        },
+        {
+          check: "High Contributor Concentration",
+          deduction: "-10 pts",
+          severity: "LOW",
+          condition:
+            "A single developer authored >80% of recent commits (single point of failure / bus-factor risk).",
+        },
+      ],
+    },
+    capsAndOverrides: "Clamped at minimum 0.0, maximum 100.0.",
+    engineFile: "collectors/activity.py",
+  },
+  CONFIGURATION: {
+    key: "CONFIGURATION",
+    label: "Configuration",
+    weight: 5,
+    icon: "⚙️",
+    shortDesc: "Branch protection rules, default branch naming, and repository metadata.",
+    summary:
+      "Checks repository setup: default branch protection policies, modern branch conventions, description, and metadata tags.",
+    calculationLogic: {
+      baseScore: 100,
+      deductions: [
+        {
+          check: "Missing Branch Protection",
+          deduction: "-20 pts",
+          severity: "HIGH",
+          condition:
+            "Default branch does not enforce required reviews, status checks, or pull requests.",
+        },
+        {
+          check: "Legacy Default Branch Name",
+          deduction: "-5 pts",
+          severity: "INFO",
+          condition: "Default branch is named 'master' instead of modern standard 'main'.",
+        },
+        {
+          check: "Missing Repository Description",
+          deduction: "-5 pts",
+          severity: "LOW",
+          condition: "Repository metadata lacks a description for discoverability.",
+        },
+        {
+          check: "Missing Topics / Tags",
+          deduction: "-5 pts",
+          severity: "LOW",
+          condition: "Repository has no topics defined for search indexing.",
+        },
+      ],
+    },
+    capsAndOverrides: "Clamped at minimum 0.0, maximum 100.0.",
+    engineFile: "collectors/configuration.py",
+  },
+};
 
 // ── Category score bar ────────────────────────────────────────────────────
 
 interface CategoryBarProps {
   label: string;
+  categoryKey: string;
   score: number;
   color: string;
+  shortDesc: string;
+  onOpenInfo: (key: string) => void;
 }
 
-function CategoryBar({ label, score, color }: CategoryBarProps) {
+function CategoryBar({
+  label,
+  categoryKey,
+  score,
+  color,
+  shortDesc,
+  onOpenInfo,
+}: CategoryBarProps) {
   return (
-    <div className="space-y-1">
-      <div className="flex justify-between text-xs">
-        <span className="text-gray-600 font-medium">{label}</span>
-        <span className="font-bold" style={{ color }}>
+    <div className="space-y-1.5 p-2 rounded-xl hover:bg-gray-50/80 transition-colors">
+      <div className="flex justify-between items-start text-xs">
+        <div className="min-w-0 pr-2">
+          <div className="flex items-center gap-1.5">
+            <span className="text-gray-800 font-semibold">{label}</span>
+            <button
+              type="button"
+              onClick={() => onOpenInfo(categoryKey)}
+              className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-800 text-[10px] font-bold transition-all border border-blue-200 cursor-pointer shrink-0"
+              title={`View ${label} details & calculation logic`}
+              aria-label={`View ${label} details`}
+            >
+              i
+            </button>
+          </div>
+          <p className="text-[11px] text-gray-500 mt-0.5 leading-snug line-clamp-1">
+            {shortDesc}
+          </p>
+        </div>
+        <span className="font-bold text-sm shrink-0" style={{ color }}>
           {Math.round(score)}
         </span>
       </div>
@@ -67,6 +439,7 @@ function CategoryBar({ label, score, color }: CategoryBarProps) {
   );
 }
 
+
 // ── Tabs ─────────────────────────────────────────────────────────────────
 
 type Tab = "findings" | "recommendations" | "actions";
@@ -77,10 +450,13 @@ export default function RepositoryDetailPage() {
   const { id } = useParams<{ id: string }>();
 
   const [activeTab, setActiveTab] = useState<Tab>("findings");
+  const [selectedCategoryInfo, setSelectedCategoryInfo] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   const [scanMsg, setScanMsg] = useState<string | null>(null);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [executingId, setExecutingId] = useState<string | null>(null);
+  const [activeScanId, setActiveScanId] = useState<string | null>(null);
+
 
   useEffect(() => {
     if (status === "unauthenticated") router.replace("/auth/signin");
@@ -89,17 +465,19 @@ export default function RepositoryDetailPage() {
   const { data: repo, loading: repoLoading, error: repoError } =
     useFetch<Repository>(id ? `/repositories/${id}` : null);
 
-  const { data: health, loading: healthLoading } =
+  const { data: health, loading: healthLoading, refetch: refetchHealth } =
     useFetch<HealthScore>(id ? `/repositories/${id}/health` : null);
 
-  const { data: findingsData, loading: findingsLoading } =
+  const { data: findingsData, loading: findingsLoading, refetch: refetchFindings } =
     useFetch<Paginated<Finding>>(
-      activeTab === "findings" && id
-        ? `/repositories/${id}/findings?limit=20`
-        : null,
+      id ? `/repositories/${id}/findings?limit=50` : null,
     );
 
-  const { data: recsData, loading: recsLoading } =
+
+  const { data: aiAnalysis, refetch: refetchAiAnalysis } =
+    useFetch<AIAnalysis>(id ? `/repositories/${id}/ai-analysis` : null);
+
+  const { data: recsData, loading: recsLoading, refetch: refetchRecs } =
     useFetch<Paginated<Recommendation>>(
       activeTab === "recommendations" && id
         ? `/repositories/${id}/recommendations?limit=20`
@@ -113,13 +491,41 @@ export default function RepositoryDetailPage() {
         : null,
     );
 
+  // ── Scan polling: poll the active scan every 4 s until COMPLETED/FAILED ──
+  const { data: liveScan } = usePoll<Scan>(
+    activeScanId ? `/scans/${activeScanId}` : null,
+    4000,
+  );
+
+  // When the polled scan reaches a terminal state, refetch all data
+  useEffect(() => {
+    if (!liveScan) return;
+    const terminalStatuses = ["COMPLETED", "FAILED", "CANCELLED"];
+    if (terminalStatuses.includes(liveScan.status)) {
+      setActiveScanId(null); // stop polling
+      if (liveScan.status === "COMPLETED") {
+        setScanMsg("Scan complete! Health data updated.");
+        refetchHealth();
+        refetchFindings();
+        refetchAiAnalysis();
+      } else {
+        setScanMsg(`Scan ${liveScan.status.toLowerCase()}.`);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveScan?.status]);
+
   const triggerScan = useCallback(async () => {
     if (!id) return;
     setScanning(true);
     setScanMsg(null);
     try {
-      await api.post(`/repositories/${id}/scans`);
-      setScanMsg("Scan queued successfully!");
+      const result = await api.post<{ id: string }>(`/repositories/${id}/scans`);
+      setScanMsg("Scan queued — results will appear automatically…");
+      // Start polling this scan ID
+      if (result?.id) {
+        setActiveScanId(result.id);
+      }
     } catch (err: unknown) {
       setScanMsg(err instanceof Error ? err.message : "Failed to queue scan");
     } finally {
@@ -130,11 +536,13 @@ export default function RepositoryDetailPage() {
   const approveRec = useCallback(async (recId: string) => {
     setApprovingId(recId);
     try {
-      await api.post(`/recommendations/${recId}/approve`);
+      await api.post(`/recommendations/${recId}/approve`, { confirmation: true });
+      refetchRecs();
+      refetchActions();
     } finally {
       setApprovingId(null);
     }
-  }, []);
+  }, [refetchRecs, refetchActions]);
 
   const executeAction = useCallback(async (actionId: string) => {
     setExecutingId(actionId);
@@ -169,6 +577,16 @@ export default function RepositoryDetailPage() {
 
   const hs = health;
 
+  const hasNoCode =
+    Boolean(repo.has_no_code) ||
+    Boolean(
+      findingsData?.items?.some(
+        (f) =>
+          f.title.toLowerCase().includes("no source code") ||
+          f.title.toLowerCase().includes("empty repository")
+      )
+    );
+
   const TABS: { id: Tab; label: string }[] = [
     { id: "findings",        label: "Findings" },
     { id: "recommendations", label: "Recommendations" },
@@ -177,7 +595,16 @@ export default function RepositoryDetailPage() {
 
   return (
     <DashboardLayout
-      title={repo.name}
+      title={
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {hasNoCode && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 border border-yellow-300 shadow-sm">
+              <span>⚠️</span> Empty Repository
+            </span>
+          )}
+          <span>{repo.name}</span>
+        </div>
+      }
       subtitle={repo.full_name}
       actions={
         <Button
@@ -190,12 +617,41 @@ export default function RepositoryDetailPage() {
         </Button>
       }
     >
+      {hasNoCode && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6 px-4 py-3.5 rounded-xl border border-yellow-300 bg-yellow-50 text-yellow-900 flex items-start gap-3 shadow-sm"
+        >
+          <span className="text-xl leading-none mt-0.5">⚠️</span>
+          <div>
+            <h4 className="text-sm font-bold text-yellow-900">
+              Warning: No source code detected in this repository
+            </h4>
+            <p className="text-xs text-yellow-800 mt-1">
+              This repository contains no recognizable programming language files or package manifests. Automated tests, CI/CD pipelines, and dependency management cannot be evaluated until source code is committed.
+            </p>
+          </div>
+        </motion.div>
+      )}
+
       {scanMsg && (
+
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-4 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-medium"
+          className={cn(
+            "mb-4 px-4 py-2.5 rounded-xl border text-sm font-medium flex items-center gap-2",
+            scanMsg.includes("complete")
+              ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+              : scanMsg.includes("queued") || activeScanId
+              ? "bg-blue-50 border-blue-200 text-blue-700"
+              : "bg-red-50 border-red-200 text-red-700"
+          )}
         >
+          {(scanMsg.includes("queued") || activeScanId) && (
+            <Spinner size="sm" />
+          )}
           {scanMsg}
         </motion.div>
       )}
@@ -213,9 +669,12 @@ export default function RepositoryDetailPage() {
                   Calculated {timeAgo(hs.calculated_at)}
                 </p>
               </>
-            ) : healthLoading ? (
-              <div className="flex items-center justify-center h-40">
+            ) : activeScanId || healthLoading ? (
+              <div className="flex flex-col items-center justify-center h-40 gap-3">
                 <Spinner size="lg" />
+                <p className="text-xs text-gray-500 font-medium">
+                  {activeScanId ? "Scanning repository…" : "Loading…"}
+                </p>
               </div>
             ) : (
               <EmptyState title="No health score yet" description="Run a scan to generate" icon="⬡" />
@@ -231,28 +690,41 @@ export default function RepositoryDetailPage() {
             </h3>
             {hs ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
-                {[
-                  { label: "Documentation",   score: hs.documentation_score },
-                  { label: "Security",        score: hs.security_score },
-                  { label: "Code Quality",    score: hs.code_quality_score },
-                  { label: "Dependencies",    score: hs.dependency_score },
-                  { label: "Issues",          score: hs.issues_score },
-                  { label: "Pull Requests",   score: hs.pull_requests_score },
-                  { label: "Activity",        score: hs.activity_score },
-                  { label: "Configuration",   score: hs.configuration_score },
-                ].map(({ label, score }) => (
-                  <CategoryBar
-                    key={label}
-                    label={label}
-                    score={score}
-                    color={scoreBandHex(
-                      score >= 90 ? "EXCELLENT" :
-                      score >= 75 ? "GOOD" :
-                      score >= 60 ? "NEEDS_ATTENTION" :
-                      score >= 40 ? "POOR" : "CRITICAL"
-                    )}
-                  />
-                ))}
+                {(() => {
+                  const getCategoryScore = (catKey: string, fallback?: number) => {
+                    if (fallback !== undefined && fallback !== null) return fallback;
+                    const found = hs.categories?.find(
+                      (c) => c.category?.toUpperCase() === catKey.toUpperCase()
+                    );
+                    return found ? found.raw_score : 0;
+                  };
+                  return [
+                    { key: "DOCUMENTATION", label: "Documentation", score: getCategoryScore("DOCUMENTATION", hs.documentation_score) },
+                    { key: "SECURITY",      label: "Security",      score: getCategoryScore("SECURITY", hs.security_score) },
+                    { key: "CODE_QUALITY",  label: "Code Quality",  score: getCategoryScore("CODE_QUALITY", hs.code_quality_score) },
+                    { key: "DEPENDENCIES",  label: "Dependencies",  score: getCategoryScore("DEPENDENCIES", hs.dependency_score) },
+                    { key: "ISSUES",        label: "Issues",        score: getCategoryScore("ISSUES", hs.issues_score) },
+                    { key: "PULL_REQUESTS", label: "Pull Requests", score: getCategoryScore("PULL_REQUESTS", hs.pull_requests_score) },
+                    { key: "ACTIVITY",      label: "Activity",      score: getCategoryScore("ACTIVITY", hs.activity_score) },
+                    { key: "CONFIGURATION", label: "Configuration", score: getCategoryScore("CONFIGURATION", hs.configuration_score) },
+                  ].map(({ key, label, score }) => (
+                    <CategoryBar
+                      key={key}
+                      categoryKey={key}
+                      label={label}
+                      score={score}
+                      shortDesc={CATEGORY_DETAILS[key]?.shortDesc || ""}
+                      onOpenInfo={(k) => setSelectedCategoryInfo(k)}
+                      color={scoreBandHex(
+                        score >= 90 ? "EXCELLENT" :
+                        score >= 75 ? "GOOD" :
+                        score >= 60 ? "NEEDS_ATTENTION" :
+                        score >= 40 ? "POOR" : "CRITICAL"
+                      )}
+                    />
+                  ));
+
+                })()}
               </div>
             ) : (
               <Skeleton className="h-48" />
@@ -260,6 +732,59 @@ export default function RepositoryDetailPage() {
           </div>
         </MotionCard>
       </div>
+
+      {/* Interactive Tech Stack Visualizer */}
+      <TechStackVisualizer
+        repo={repo}
+        health={health}
+        findings={findingsData?.items}
+        hasNoCode={hasNoCode}
+      />
+
+      {/* AI Executive Summary & Risk Analysis */}
+
+      {aiAnalysis?.result && (
+        <MotionCard className="mb-6 p-6 border-indigo-100 bg-gradient-to-br from-white via-indigo-50/20 to-purple-50/10">
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-600 text-white text-xs font-bold shadow-xs">
+                AI
+              </span>
+              <h3 className="text-sm font-semibold text-gray-900">
+                Gemini Health Assessment
+              </h3>
+            </div>
+            <span className="text-[11px] font-medium text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200">
+              {aiAnalysis.model}
+            </span>
+          </div>
+
+          {aiAnalysis.result.summary && (
+            <p className="text-sm text-gray-700 leading-relaxed mb-4">
+              {aiAnalysis.result.summary}
+            </p>
+          )}
+
+          {aiAnalysis.result.key_risks && aiAnalysis.result.key_risks.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                Key Identified Risks
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {aiAnalysis.result.key_risks.map((risk, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-start gap-2 p-2.5 rounded-lg bg-white/80 border border-gray-100 text-xs text-gray-700 shadow-2xs"
+                  >
+                    <span className="text-amber-500 font-bold shrink-0">⚠</span>
+                    <span>{risk}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </MotionCard>
+      )}
 
       {/* Tabs */}
       <div className="mb-5">
@@ -350,7 +875,9 @@ export default function RepositoryDetailPage() {
                           </span>
                         </div>
                         <p className="text-xs text-gray-500 line-clamp-2">{rec.description}</p>
-                        <p className="text-xs text-brand-600 mt-1 font-semibold">{rec.action_type}</p>
+                        <p className="text-xs text-brand-600 mt-1 font-semibold">
+                          {rec.recommended_action?.action_type || rec.action_type || "MANUAL_REVIEW"}
+                        </p>
                       </div>
                       <div className="shrink-0 flex flex-col items-end gap-2">
                         <span className={cn(
@@ -406,15 +933,17 @@ export default function RepositoryDetailPage() {
                           <p className="text-sm font-semibold text-gray-900">{action.action_type}</p>
                           <AIActionStatusBadge status={action.status} />
                         </div>
-                        {action.branch_name && (
-                          <p className="text-xs text-gray-500 font-mono">Branch: {action.branch_name}</p>
+                        {(action.result?.branch_name || action.branch_name) && (
+                          <p className="text-xs text-gray-500 font-mono">
+                            Branch: {action.result?.branch_name || action.branch_name}
+                          </p>
                         )}
-                        {action.pr_url && (
+                        {(action.result?.pull_request_url || action.pr_url) && (
                           <a
-                            href={action.pr_url}
+                            href={action.result?.pull_request_url || action.pr_url || "#"}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-xs text-brand-600 hover:text-brand-700 underline-offset-2 hover:underline font-medium"
+                            className="text-xs text-brand-600 hover:text-brand-700 underline-offset-2 hover:underline font-medium inline-flex items-center gap-1"
                           >
                             View Pull Request ↗
                           </a>
@@ -444,6 +973,163 @@ export default function RepositoryDetailPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Category Calculation & Info Modal */}
+      <AnimatePresence>
+        {selectedCategoryInfo && CATEGORY_DETAILS[selectedCategoryInfo] && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs"
+            onClick={() => setSelectedCategoryInfo(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 12 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+              className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {(() => {
+                const item = CATEGORY_DETAILS[selectedCategoryInfo];
+                const catScore = (() => {
+                  const found = hs?.categories?.find(
+                    (c) => c.category?.toUpperCase() === item.key.toUpperCase()
+                  );
+                  return found ? found.raw_score : 0;
+                })();
+                return (
+                  <div>
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/80">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">{item.icon}</span>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-base font-bold text-gray-900">
+                              {item.label}
+                            </h3>
+                            <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-brand-50 text-brand-700 border border-brand-200">
+                              Weight: {item.weight}%
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            Category Score:{" "}
+                            <span className="font-bold text-gray-800">
+                              {Math.round(catScore)} / 100
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setSelectedCategoryInfo(null)}
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-200/60 transition-colors text-sm font-semibold cursor-pointer"
+                        aria-label="Close"
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    {/* Scrollable Content Body */}
+                    <div className="p-6 max-h-[62vh] overflow-y-auto space-y-5 text-xs text-gray-600">
+                      {/* What this category does */}
+                      <div>
+                        <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+                          What this category monitors & evaluates
+                        </h4>
+                        <p className="text-gray-700 text-xs leading-relaxed bg-gray-50 p-3 rounded-xl border border-gray-100">
+                          {item.summary}
+                        </p>
+                      </div>
+
+                      {/* Calculation logic */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                            How it is calculated (Backend Logic)
+                          </h4>
+                          <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                            Base: {item.calculationLogic.baseScore} pts
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {item.calculationLogic.deductions.map((rule, idx) => (
+                            <div
+                              key={idx}
+                              className="p-3 rounded-xl border border-gray-100 bg-white hover:border-gray-200 transition-colors shadow-2xs"
+                            >
+                              <div className="flex items-center justify-between gap-2 mb-1">
+                                <span className="font-semibold text-gray-900 text-xs">
+                                  {rule.check}
+                                </span>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <span
+                                    className={cn(
+                                      "px-1.5 py-0.5 rounded text-[10px] font-bold",
+                                      rule.severity === "CRITICAL"
+                                        ? "bg-red-50 text-red-700 border border-red-200"
+                                        : rule.severity === "HIGH"
+                                        ? "bg-orange-50 text-orange-700 border border-orange-200"
+                                        : rule.severity === "MEDIUM"
+                                        ? "bg-yellow-50 text-yellow-800 border border-yellow-200"
+                                        : rule.severity === "LOW"
+                                        ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                        : "bg-gray-100 text-gray-600 border border-gray-200"
+                                    )}
+                                  >
+                                    {rule.severity}
+                                  </span>
+                                  <span className="font-bold text-red-600 text-xs">
+                                    {rule.deduction}
+                                  </span>
+                                </div>
+                              </div>
+                              <p className="text-gray-500 text-[11px] leading-normal">
+                                {rule.condition}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Safety caps */}
+                      {item.capsAndOverrides && (
+                        <div>
+                          <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+                            Safety Caps & Overrides
+                          </h4>
+                          <p className="text-amber-900 bg-amber-50/90 p-3 rounded-xl border border-amber-200 text-xs leading-relaxed">
+                            ⚠️ {item.capsAndOverrides}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Engine implementation reference */}
+                      <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-400">
+                        <span>Backend Engine Collector:</span>
+                        <code className="text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded font-mono text-[10px]">
+                          {item.engineFile}
+                        </code>
+                      </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="px-6 py-3 border-t border-gray-100 bg-gray-50/50 flex justify-end">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setSelectedCategoryInfo(null)}
+                      >
+                        Close
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })()}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </DashboardLayout>
   );
 }
+

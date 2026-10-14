@@ -1,11 +1,92 @@
 # Short-Term Memory
 
 ## Current status
-- Phase 6 COMPLETE — Frontend Dashboard & UI Components (Next.js 15, React 19, Tailwind CSS, Moveable Drag & Drop Dashboard with @dnd-kit, 3D Hover Animations with Framer Motion, CareOps Light Modern SaaS Theme with White Cards, Deep Indigo Sidebar, Violet Highlights, Repository Views, Findings Browser, AI Actions, In-App Notifications, Settings, and Branded Signin).
-- Production build passed (11/11 routes), ESLint clean (0 errors/warnings), TypeScript strict check clean (0 errors), backend test suite 212/212 passing.
-- Docker Compose local stack verified: PostgreSQL, Redis, Backend (Uvicorn), Worker, and Frontend (Next.js 15 standalone) running healthy. NextAuth v5 `trustHost: true`, `AUTH_SECRET`, and `AUTH_TRUST_HOST` verified.
-- Auth chain fixed (2026-10-01): 3 root-causes resolved — backend now accepts GitHub numeric sub via uuid5 derivation, `get_or_create_user` accepts deterministic user_id, bootstrap_session passes user_id, frontend exposes JWT via `/api/auth/token` route, `AuthProvider` wires token store + backend bootstrap on sign-in, layout nests `AuthProvider` inside `SessionProvider`.
-- Next: Phase 7 — Testing, Polish, Documentation & Deployment.
+- **Session 19 (2026-10-14): Widget Controller (Master Switch & Granular Visibility Controls).**
+  - **Feature:**
+    1. Built modular `WidgetController` located in `frontend/src/components/widgets/controller/` with draggable floating dock, master switch (`Enable All Widgets` ON/OFF), and granular per-widget visibility toggles (`System Clock`, `Theme Switcher`).
+    2. Implemented `WidgetProvider` & `useWidgetController()` hook managing state and local storage persistence (`gh_health_widgets_controller_settings`).
+    3. Added "Reset Layout" action dispatching `gh_health_reset_widget_positions` to restore all widget positions back to default navbar docking.
+    4. Documented controller architecture in `.agents/rules/widgets.md`.
+  - **Verification:** `tsc --noEmit` passed cleanly with 0 errors.
+- **Session 18 (2026-10-14): Latest Notifications 5-Item Limit & Notifications Center Filter Tags.**
+  - **Feature:**
+    1. **Latest Notifications Widget Limit:** In `frontend/src/components/dashboard/Widgets.tsx`, updated `NotificationsWidget` to display only the first 5 notifications at a time using `.slice(0, 5)` and added `page_size=5` to the fetch query parameter.
+    2. **Notification Center Filter Tags:** In `frontend/src/app/notifications/page.tsx`, replaced the binary "Unread only" toggle button with three dedicated filter tags: **All**, **Read**, and **Unread**.
+    3. **Dynamic Filtering & State Sync:** Dynamically fetches from `/notifications` using the `is_read` parameter (`false`, `true`, or none) with `page_size=50&limit=50`, filters notifications considering optimistic `localRead` state, syncs unread counts via `/notifications/unread-count`, and tailors empty states to each selected tag.
+  - **Files Changed:**
+    - `frontend/src/components/dashboard/Widgets.tsx`
+    - `frontend/src/app/notifications/page.tsx`
+  - **Verification:** `npm run lint` clean (0 errors, 0 breaking warnings).
+- **Session 17 (2026-10-14): Dark-Bright Theme Toggle Widget.**
+  - **Feature:** Built modular Dark/Bright/Auto Theme Switcher Widget under `frontend/src/components/widgets/theme-toggle/` with segmented pill control (`Bright ☀️`, `Dark 🌙`, `Auto 💻`), draggable pointer-capture engine, viewport boundary clamping, position/mode persistence in `localStorage`, and zero-flash initialization script in `app/layout.tsx`. Configured Tailwind `darkMode: "class"` and updated CSS custom properties in `globals.css`.
+  - **Verification:** `npm run type-check` passed with 0 errors.
+- **Session 16 (2026-10-14): Interactive Tech Stack Visualizer Component.**
+  - **Feature:**
+    1. Built dynamic, interactive architecture visualizer container (`TechStackVisualizer.tsx`) categorizing repository technologies into 4 tiers: Client & UI, API & Backend, Data & Storage, and DevOps & CI/CD.
+    2. Interactive node selection with hover states, live connection status indicators (`Connected & Active`, `Monitored by Scan`, `Action Required`), purpose descriptions, and configuration file origins.
+    3. Filterable by architectural layer with empty state handling for zero-code repositories.
+  - **Files Changed:** Created `frontend/src/components/repository/TechStackVisualizer.tsx` and integrated into `frontend/src/app/repositories/[id]/page.tsx`. Zero unrelated code modified.
+  - **Verification:** `next build` compiled cleanly with 0 errors. Docker frontend container restarted.
+- **Session 15 (2026-10-14): Category Descriptions & Scrollable Backend Calculation Details Modal.**
+
+  - **Feature:**
+    1. Added exact, concise description below each of the 8 category names in the Category Breakdown grid.
+    2. Added a circular "i" info icon button next to each category name.
+    3. Clicking the "i" icon displays an interactive, scrollable info display modal (`max-h-[62vh] overflow-y-auto`) presenting full breakdown logic as per backend collectors: base score, exact deduction amounts, conditions, severity tags, safety caps & overrides, weight percentage, and the underlying backend collector file path.
+  - **Files Changed:** Only `frontend/src/app/repositories/[id]/page.tsx`. Zero unrelated files touched.
+  - **Verification:** Next.js production build succeeded with zero errors, frontend container restarted.
+- **Session 14 (2026-10-14): Frontend Empty Repository Warning Tag & Alert Banner.**
+
+  - **Feature:** Display a yellow warning tag (`⚠️ Empty Repository`) on the left side of the repository name, and a prominent yellow warning banner on the repository detail page (`/repositories/[id]`) and repository cards (`/repositories`).
+  - **Conditional Logic:** Evaluates `repo.has_no_code` and open findings (`no source code`/`empty repository`). If source code is present, neither the tag nor warning message is displayed.
+  - **Changes:**
+    - `backend/app/schemas/repository.py`: added `has_no_code: bool = False` to `RepositoryResponse`.
+    - `backend/app/api/v1/repositories.py`: attached `has_no_code` based on open findings in `_attach_latest_health_scores`.
+    - `frontend/src/lib/types.ts`: added `has_no_code?: boolean` to `Repository`.
+    - `frontend/src/components/layout/DashboardLayout.tsx`: relaxed `title` prop to `React.ReactNode`.
+    - `frontend/src/app/repositories/[id]/page.tsx`: rendered yellow tag on the left of `repo.name` in header and yellow warning callout banner above category scores.
+    - `frontend/src/app/repositories/page.tsx`: rendered yellow `⚠️ Empty Repo` tag on the left of `repo.name` in repo cards.
+  - **Verification:** Backend tests passing (222/222, 75.61% coverage), Next.js production build succeeded with zero errors, containers restarted.
+- **Session 13 (2026-10-14): Real-Time Draggable System Clock & Widget Architecture Rule.**
+
+  - **Feature:** Added real-time software system clock widget with sub-second synchronization, 12H/24H toggle, date, seconds, timezone selector (400+ IANA zones), pointer-capture drag engine, and persistence.
+  - **Modular Architecture:** Created dedicated per-widget subfolder structure under `frontend/src/components/widgets/clock/` orchestrated via `WidgetContainer.tsx` in `frontend/src/app/layout.tsx`.
+  - **Rules Added:** Codified widget design and folder creation standards in `.agents/rules/widgets.md` and referenced in `.agents/rules/development.md`.
+- **Session 12 (2026-10-14): Empty / No-Code Repository Detection & Scoring Safety Cap.**
+  - **Issue Reported by User:** Scanning an empty repository (`Hello-galaxy`) with zero code files (only a README.md and 1 initial commit) gave an undeserved score of 71/100 (Needs Attention), 100 in Dependencies, 100 in Issues, 100 in PRs, and lacked any finding stating that the repo has no code.
+  - **Fix Applied:**
+    1. Added `ScanContext.has_source_code()` checking for recognizable language file extensions and project manifests.
+    2. Updated `CodeQualityCollector`: when no source code exists, it emits a `HIGH` severity finding (`No source code detected (Empty Repository)`: "The repository contains no recognizable source code files or package manifests. Automated tests, CI/CD pipelines, and code quality tools cannot be evaluated.") and sets `code_quality_score` to `0.0`.
+    3. Updated `DependenciesCollector`: when no manifests and no source code exist, `dependencies_score` is set to `0.0` (instead of 100.0).
+    4. Updated `engine.py` (`calculate_health_score`): added `_CAP_OVERALL_EMPTY_REPO = 30.0` safety cap whenever an empty repo finding is active, enforcing `CRITICAL` band (score ≤ 30.0).
+    5. Unit tests: added 4 new unit tests in `test_collectors.py` and `test_scoring_service.py`. Test suite: **222 / 222 passing**, **75.69% test coverage**.
+    6. Restarted Docker backend and worker containers cleanly.
+- **Session 11 (2026-10-14): Fixed /findings client-side exception crash.**
+
+  - **Issue:** Clicking "Findings" (`/findings`) threw `Application error: a client-side exception has occurred`.
+  - **Root Cause:** In `frontend/src/app/findings/page.tsx:125`, `<pre>{f.evidence}</pre>` attempted to render `f.evidence` directly. The backend returns `evidence` as a JSON dictionary (`dict[str, Any]`), causing React to throw `Error: Objects are not valid as a React child`.
+  - **Fix Applied:** Updated `evidence` in `frontend/src/lib/types.ts` to `Record<string, unknown> | string | null`, and safely serialized `f.evidence` in `frontend/src/app/findings/page.tsx` using `{typeof f.evidence === "string" ? f.evidence : JSON.stringify(f.evidence, null, 2)}`. Zero unrelated files touched.
+  - **Build Status:** Frontend container rebuild in progress.
+- **Session 10 (2026-10-14): Resolved 50% category scores bug + Added Groq AI support.**
+  - **Why all categories showed 50% (FIXED):** The 8 collectors emitted metrics like `security_score`, `documentation_score`, etc., but `_derive_category_raw_score` in `engine.py` was checking for `metric_name == "score"`. Because of this name check mismatch, every category fell back to the neutral `50.0` default. Updated `_derive_category_raw_score` to match `<category>_score`, `score`, or `metric_unit == 'score'`. Real collector metrics are now used.
+  - **Groq AI Provider Support (IMPLEMENTED):**
+    - Added `call_groq` in `services/ai/client.py` using Groq's high-speed OpenAI-compatible chat completions endpoint with native JSON mode.
+    - Added unified `call_ai` router that automatically switches between `google` (Gemini) and `groq` (`llama-3.3-70b-versatile`).
+    - Added `groq_api_key` and `groq_model` to `backend/app/config.py`.
+    - Added unit tests for `call_groq` and `call_ai` routing in `tests/test_ai_service.py`.
+  - **Test Suite:** 218 / 218 tests passing (100% pass rate, 75.54% coverage).
+  - **Containers:** All 5 Docker containers running and healthy.
+- End-to-End Scan & Dashboard Flow: ANALYZED, FIXED & VERIFIED LIVE.
+  - Root Cause A (Dashboard Overview / Trends): `GET /api/v1/repositories` returned `latest_health_score: None`. Added `_attach_latest_health_scores()` to attach calculated score, score band, and timestamps.
+  - Root Cause B (Dashboard Recent Scans): `/api/v1/scans` returned 404 because no workspace-scoped scans list route existed. Added `GET /api/v1/scans` endpoint with repository name enrichment.
+  - Root Cause C (Repository Detail Categories): Category breakdown referenced flat fields (`hs.documentation_score`) rather than `hs.categories` array. Implemented `getCategoryScore()` fallback resolver.
+  - Root Cause D (AI Model Invariant & Overload): `gemini-3.5-flash-lite` experienced high-demand 503 spikes; upgraded default to `gemini-3.5-flash` with graceful non-blocking `SKIPPED` degradation ensuring scans and health scores never fail or hang.
+  - Live Validation: Verified live backend container API with authenticated JWT requests:
+    - `GET /repositories`: returns `latest_health_score` (50.0/POOR) for scanned repos.
+    - `GET /scans?limit=5`: returns HTTP 200 with 1 completed scan for `Dhanx`.
+    - `GET /repositories/{id}/health`: returns 50.0/POOR across 8 categories.
+  - Test Suite: 212/212 tests passing. All docker containers refreshed and running.
+- Ready for Phase 7 (Testing, Polish, Docs, and Deployment).
 
 ## Completed work
 - Phase 1: Full foundation scaffold, 18 models, Alembic migration, 9 Pydantic schemas, FastAPI core, Next.js frontend, CI workflow.
