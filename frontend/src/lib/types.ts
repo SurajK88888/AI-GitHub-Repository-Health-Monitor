@@ -12,7 +12,7 @@ export type ScoreBand =
   | "POOR"
   | "CRITICAL";
 
-export type FindingSeverity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";
+export type FindingSeverity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO" | "INFORMATIONAL";
 
 export type ScanStatus =
   | "QUEUED"

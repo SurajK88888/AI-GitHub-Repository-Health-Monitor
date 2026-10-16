@@ -12,7 +12,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -136,6 +136,9 @@ async def list_repositories(
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
     limit: int | None = Query(None, description="Alias for page_size"),
     monitoring_only: bool = Query(False, description="Only return monitored repos"),
+    search: str | None = Query(
+        None, max_length=100, description="Search term for repository name or full_name"
+    ),
     current_user: CurrentUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> PaginatedResponse:
@@ -154,6 +157,14 @@ async def list_repositories(
     query = select(Repository).where(Repository.workspace_id == current_user.workspace_id)
     if monitoring_only:
         query = query.where(Repository.monitoring_enabled.is_(True))
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        query = query.where(
+            or_(
+                Repository.name.ilike(term),
+                Repository.full_name.ilike(term),
+            )
+        )
 
     # Count total
     from sqlalchemy import func

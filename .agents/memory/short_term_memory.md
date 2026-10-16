@@ -1,6 +1,19 @@
 # Short-Term Memory
 
 ## Current status
+- **Session 20 (2026-10-14): Functional & Secure Topbar Repository Search Bar.**
+  - **Issue Reported:** Global Topbar search bar was static with no interaction or search capability.
+  - **Feature:**
+    1. **Interactive Topbar Search Bar:** Implemented two-way query binding with real-time filtering, safe character length limit (`maxLength={100}`), click-outside dismissal, and clear (✕) button in `frontend/src/components/layout/Topbar.tsx`.
+    2. **Live Results Dropdown & Highlight:** Animated dropdown popover displaying top matching repositories with health score badges, repo icons, full names, and XSS-safe highlighted matching substrings.
+    3. **Keyboard Navigation & Deep-Linking:** Full keyboard control (ArrowDown/ArrowUp navigation, Enter to open selected repo or submit search, Escape to close).
+    4. **Repositories Page Search Integration:** `/repositories` page now parses `search` / `q` searchParams, displays active search filter banner with one-click clear button, and tailors empty states to search queries.
+    5. **Backend Search Support:** Added parameterized `search` query parameter in `backend/app/api/v1/repositories.py` (`Repository.name.ilike`, `Repository.full_name.ilike`) with max length validation.
+  - **Files Changed:**
+    - `frontend/src/components/layout/Topbar.tsx`
+    - `frontend/src/app/repositories/page.tsx`
+    - `backend/app/api/v1/repositories.py`
+  - **Verification:** `npx tsc --noEmit` and `npm run lint` clean (0 errors).
 - **Session 19 (2026-10-14): Widget Controller (Master Switch & Granular Visibility Controls).**
   - **Feature:**
     1. Built modular `WidgetController` located in `frontend/src/components/widgets/controller/` with draggable floating dock, master switch (`Enable All Widgets` ON/OFF), and granular per-widget visibility toggles (`System Clock`, `Theme Switcher`).
@@ -176,5 +189,19 @@
     - `npm run lint` clean (0 errors, 0 warnings).
     - `npx tsc --noEmit` clean (0 type errors).
     - Backend pytest test suite clean (212/212 passing, 79.29% coverage).
+- Session 21:
+  - Notifications Widget & Dropdown:
+    - Limited dropdown to top 5 latest notifications (`items.slice(0, 5)`).
+    - Filter tabs added (`ALL`, `UNREAD`, `READ`) with client-side reactive filtering for specific message views.
+  - Global Search Bar & Repositories:
+    - Secure, debounced search implemented in `Topbar.tsx` querying repositories API and linking directly to results.
+    - Synchronized search query parameter in `/repositories` page.
+  - Findings `INFO` Tag & Error Formatting:
+    - Resolved `[object Object]` error when clicking `INFO` tag on `/findings` page.
+    - Root cause: Backend `FindingSeverity` enum uses `INFORMATIONAL` whereas the frontend tab sends `INFO`, causing FastAPI 422 Unprocessable Entity, which `api.ts` rendered as `[object Object]` due to raw `detail` object handling.
+    - Backend (`backend/app/api/v1/findings.py`): Accepted string severity queries and mapped `INFO` -> `INFORMATIONAL` across both repository findings and workspace findings endpoints.
+    - Frontend (`frontend/src/app/findings/page.tsx`, `types.ts`, `Badge.tsx`, `utils.ts`): Extended `FindingSeverity` type to support both `INFO` and `INFORMATIONAL`, added `INFORMATIONAL` badge and color styling mapping to `"INFO"`, and sent `INFORMATIONAL` for API requests.
+    - API Client (`frontend/src/lib/api.ts`): Formatted FastAPI `detail` array/object error structures into readable strings to permanently eliminate `[object Object]` errors.
+    - Verification: `npx tsc --noEmit` exited clean (code 0).
 
 

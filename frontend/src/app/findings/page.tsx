@@ -42,9 +42,10 @@ export default function FindingsPage() {
     if (status === "unauthenticated") router.replace("/auth/signin");
   }, [status, router]);
 
+  const querySeverity = severity === "INFO" ? "INFORMATIONAL" : severity;
   const path = severity === "ALL"
     ? "/findings?limit=50"
-    : `/findings?severity=${severity}&limit=50`;
+    : `/findings?severity=${querySeverity}&limit=50`;
 
   const { data, loading, error, refetch } = useFetch<Paginated<Finding>>(path);
   const findings = data?.items ?? [];

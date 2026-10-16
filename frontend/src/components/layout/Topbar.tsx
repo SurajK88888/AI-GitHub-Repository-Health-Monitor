@@ -4,19 +4,94 @@ import { useState, useRef, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useFetch } from "@/lib/hooks";
+import { cn } from "@/lib/utils";
+import type { Repository, Paginated } from "@/lib/types";
+
+function HighlightMatch({ text, query }: { text: string; query: string }) {
+  if (!query.trim()) return <span>{text}</span>;
+  const q = query.trim().toLowerCase();
+  const index = text.toLowerCase().indexOf(q);
+  if (index === -1) return <span>{text}</span>;
+  const before = text.slice(0, index);
+  const match = text.slice(index, index + q.length);
+  const after = text.slice(index + q.length);
+  return (
+    <span>
+      {before}
+      <span className="text-brand-600 font-extrabold bg-brand-50/80 rounded px-0.5">{match}</span>
+      {after}
+    </span>
+  );
+}
 
 export function Topbar() {
   const { data: session } = useSession();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [isFocused, setIsFocused] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+
   const ref = useRef<HTMLDivElement>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  const { data: repoData } = useFetch<Paginated<Repository>>(
+    session?.user ? "/repositories?limit=100" : null
+  );
+
+  const searchResults = (repoData?.items ?? [])
+    .filter((r) => {
+      if (!query.trim()) return false;
+      const q = query.toLowerCase().trim();
+      return r.name.toLowerCase().includes(q) || r.full_name.toLowerCase().includes(q);
+    })
+    .slice(0, 8);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setIsFocused(false);
+      }
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev < searchResults.length - 1 ? prev + 1 : 0));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev > 0 ? prev - 1 : searchResults.length - 1));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (selectedIndex >= 0 && searchResults[selectedIndex]) {
+        router.push(`/repositories/${searchResults[selectedIndex].id}`);
+        setIsFocused(false);
+      } else if (query.trim()) {
+        router.push(`/repositories?search=${encodeURIComponent(query.trim())}`);
+        setIsFocused(false);
+      }
+    } else if (e.key === "Escape") {
+      setIsFocused(false);
+      setSelectedIndex(-1);
+    }
+  };
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedIndex >= 0 && searchResults[selectedIndex]) {
+      router.push(`/repositories/${searchResults[selectedIndex].id}`);
+      setIsFocused(false);
+    } else if (query.trim()) {
+      router.push(`/repositories?search=${encodeURIComponent(query.trim())}`);
+      setIsFocused(false);
+    }
+  };
 
   const initials = session?.user?.name
     ? session.user.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
@@ -26,18 +101,137 @@ export function Topbar() {
 
   return (
     <header className="app-topbar bg-white border-b border-gray-100 flex items-center justify-between px-6 h-16 sticky top-0 z-30 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
-      {/* Search Input */}
-      <div className="w-72">
-        <div className="relative">
+      {/* Search Input & Live Results Dropdown */}
+      <div ref={searchContainerRef} className="relative w-80">
+        <form onSubmit={handleSearchSubmit} className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">
             🔍
           </span>
           <input
             type="text"
+            value={query}
+            maxLength={100}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setSelectedIndex(-1);
+              if (!isFocused) setIsFocused(true);
+            }}
+            onFocus={() => setIsFocused(true)}
+            onKeyDown={handleKeyDown}
             placeholder="Search repositories..."
-            className="w-full pl-9 pr-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:bg-white focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition-all"
+            id="topbar-search-input"
+            role="combobox"
+            aria-expanded={isFocused && query.trim().length > 0}
+            aria-controls="topbar-search-results"
+            aria-label="Search repositories"
+            autoComplete="off"
+            spellCheck="false"
+            className="w-full pl-9 pr-8 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:bg-white focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition-all"
           />
-        </div>
+          {query && (
+            <button
+              type="button"
+              onClick={() => {
+                setQuery("");
+                setSelectedIndex(-1);
+              }}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-600 flex items-center justify-center text-xs transition-colors cursor-pointer"
+              title="Clear search"
+            >
+              ✕
+            </button>
+          )}
+        </form>
+
+        {/* Live Search Results Dropdown */}
+        <AnimatePresence>
+          {isFocused && query.trim().length > 0 && (
+            <motion.div
+              id="topbar-search-results"
+              role="listbox"
+              initial={{ opacity: 0, y: 6, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 4, scale: 0.98 }}
+              transition={{ duration: 0.15 }}
+              className="absolute left-0 top-full mt-2 w-96 bg-white border border-gray-200/90 rounded-2xl shadow-card-lg z-50 overflow-hidden"
+            >
+              {searchResults.length > 0 ? (
+                <div>
+                  <div className="px-3.5 py-2 text-2xs font-bold text-gray-400 uppercase tracking-wider bg-gray-50/70 border-b border-gray-100 flex items-center justify-between">
+                    <span>Repositories</span>
+                    <span>{searchResults.length} match{searchResults.length > 1 ? "es" : ""}</span>
+                  </div>
+                  <div className="py-1 max-h-72 overflow-y-auto">
+                    {searchResults.map((repo, idx) => {
+                      const score = repo.latest_health_score?.overall_score;
+                      return (
+                        <Link
+                          key={repo.id}
+                          href={`/repositories/${repo.id}`}
+                          onClick={() => {
+                            setIsFocused(false);
+                            setQuery("");
+                          }}
+                          className={cn(
+                            "flex items-center gap-3 px-3.5 py-2.5 transition-colors cursor-pointer border-b border-gray-50 last:border-b-0",
+                            selectedIndex === idx ? "bg-brand-50" : "hover:bg-gray-50/80"
+                          )}
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center text-sm flex-shrink-0 border border-brand-100/60 font-bold">
+                            ⬡
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-gray-800 truncate">
+                              <HighlightMatch text={repo.name} query={query} />
+                            </p>
+                            <p className="text-2xs text-gray-400 truncate">
+                              {repo.full_name}
+                            </p>
+                          </div>
+                          {score !== undefined && (
+                            <span
+                              className={cn(
+                                "text-2xs font-extrabold px-2 py-0.5 rounded-full flex-shrink-0 border",
+                                score >= 80
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  : score >= 60
+                                  ? "bg-amber-50 text-amber-700 border-amber-200"
+                                  : "bg-red-50 text-red-700 border-red-200"
+                              )}
+                            >
+                              {Math.round(score)}
+                            </span>
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                  <div className="p-2 border-t border-gray-100 bg-gray-50/50">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        router.push(`/repositories?search=${encodeURIComponent(query.trim())}`);
+                        setIsFocused(false);
+                      }}
+                      className="w-full text-center py-1.5 text-xs font-semibold text-brand-600 hover:text-brand-700 hover:bg-brand-50/80 rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <span>View all results for &ldquo;{query.trim()}&rdquo;</span>
+                      <span>→</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="px-4 py-6 text-center">
+                  <span className="text-xl">🔍</span>
+                  <p className="text-xs font-semibold text-gray-700 mt-1">No repositories found</p>
+                  <p className="text-2xs text-gray-400 mt-0.5">
+                    No repositories match &ldquo;{query.trim()}&rdquo;
+                  </p>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Right controls */}
