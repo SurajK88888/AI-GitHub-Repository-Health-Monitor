@@ -130,6 +130,64 @@ class CodeQualityCollector(BaseCollector):
                     fingerprint=_fp("missing_ci"),
                 )
             )
+        elif ctx.recent_ci_runs:
+            # ── CI/CD execution & workflow health ────────────────────────────
+            completed_runs = [r for r in ctx.recent_ci_runs if r.get("status") == "completed"]
+            if completed_runs:
+                total_completed = len(completed_runs)
+                successful_runs = [r for r in completed_runs if r.get("conclusion") == "success"]
+                failed_runs = [
+                    r for r in completed_runs if r.get("conclusion") in ("failure", "timed_out")
+                ]
+                success_rate = (len(successful_runs) / total_completed) * 100.0
+
+                result.metrics.append(
+                    MetricData(_CAT, "ci_success_rate", round(success_rate, 1), "percent")
+                )
+                result.metrics.append(
+                    MetricData(_CAT, "ci_failed_run_count", float(len(failed_runs)), "count")
+                )
+
+                latest_run = completed_runs[0]
+                if latest_run.get("conclusion") in ("failure", "timed_out"):
+                    score -= 20.0
+                    result.findings.append(
+                        FindingData(
+                            category=_CAT,
+                            severity="HIGH",
+                            title=f"Latest CI workflow run failed ({latest_run.get('name', 'CI')})",
+                            description=(
+                                f"The most recent completed CI workflow run '{latest_run.get('name', 'CI')}' "
+                                f"concluded with status '{latest_run.get('conclusion')}'. "
+                                "Failing CI runs indicate broken builds, failing tests, or unhandled exceptions."
+                            ),
+                            fingerprint=_fp("ci_run_failed", str(latest_run.get("id", ""))),
+                            evidence={
+                                "run_id": latest_run.get("id"),
+                                "workflow_name": latest_run.get("name"),
+                                "conclusion": latest_run.get("conclusion"),
+                            },
+                        )
+                    )
+                elif success_rate < 50.0:
+                    score -= 10.0
+                    result.findings.append(
+                        FindingData(
+                            category=_CAT,
+                            severity="MEDIUM",
+                            title=f"Low CI workflow pass rate ({int(success_rate)}%)",
+                            description=(
+                                f"Only {len(successful_runs)} of the last {total_completed} completed CI workflow runs succeeded. "
+                                "Frequent CI failures suggest flaky tests, unstable builds, or unvetted commits."
+                            ),
+                            fingerprint=_fp("ci_low_pass_rate"),
+                            evidence={
+                                "success_rate_percent": round(success_rate, 1),
+                                "failed_count": len(failed_runs),
+                                "total_completed": total_completed,
+                            },
+                        )
+                    )
 
         # ── Test files/directories ────────────────────────────────────────
         has_tests = False

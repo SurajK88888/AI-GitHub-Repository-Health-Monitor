@@ -1,6 +1,26 @@
 # Short-Term Memory
 
 ## Current status
+- **Session 23 (2026-10-18): CI Workflow Execution Status & Pass Rate in Code Quality Collector (Improvement 2).**
+  - **Feature:**
+    1. **Workflow Runs Ingestion:** Enhanced `github_fetcher.py` and `ScanContext` (`context.py`) with `recent_ci_runs` field fetching the latest 10 GitHub Actions workflow runs (`/repos/{owner}/{repo}/actions/runs`) with fail-safe error handling.
+    2. **Execution Health & Flakiness Detection:** Enhanced `CodeQualityCollector` (`collectors/code_quality.py`) to evaluate completed workflow runs:
+       - Flags a `HIGH` finding and deducts `-20.0 pts` if the most recent completed run failed (`failure` or `timed_out`).
+       - Flags a `MEDIUM` finding and deducts `-10.0 pts` if the overall CI pass rate is below 50% across recent runs.
+       - Records `ci_success_rate` (percent) and `ci_failed_run_count` (count) metrics.
+    3. **Backward Compatibility:** Repositories without Actions or where Actions API is inaccessible default gracefully with 0 deductions.
+  - **Verification:**
+    - Full test suite: **237 / 237 passed** (8/8 code quality tests), **70.09% test coverage**.
+    - Ruff lint and formatting clean. Zero unrelated files changed.
+- **Session 22 (2026-10-17): Content-Level Secret Scanning in Security Collector (Improvement 1).**
+  - **Feature:**
+    1. **Content Secret Scanning:** Enhanced `SecurityCollector` (`backend/app/services/scanner/collectors/security.py`) to scan repository file contents (`ctx.file_contents`) for hardcoded credentials (unencrypted Private Key blocks, AWS Access Key IDs `AKIA...`, GitHub Personal Access Tokens `ghp_...` / `github_pat_...`, Slack tokens `xox...`).
+    2. **False-Positive Guard & Masking:** Filters out dummy/example tokens (`example`, `placeholder`, `your_`, `test`, `sample`) and masks secrets (`_mask_secret`) before recording in findings/evidence to prevent credential leakage.
+    3. **GitHub Fetcher Extension:** Added high-risk configuration files (`docker-compose.yml`, `docker-compose.yaml`, `.env.example`) to `_CONTENT_FILES` in `backend/app/services/scanner/github_fetcher.py`.
+    4. **Deduplication:** Prevents double-penalizing files already flagged by path. Enforces safety cap (`score <= 30.0`) when content secrets are detected.
+  - **Verification:**
+    - Full test suite: **234 / 234 passed** (10/10 security collector tests), **70.12% test coverage**.
+    - Ruff lint and formatting clean. Zero unrelated files changed.
 - **Session 21 (2026-10-17): Automated AI Scan Scheduling (User-Configurable Date, Time & Day).**
   - **Feature:**
     1. **Data Model & Migration:** Added `scan_schedule_enabled`, `scan_schedule_frequency` (DAILY, WEEKLY, MONTHLY), `scan_schedule_time` (HH:MM UTC), `scan_schedule_day` (MON..SUN or 1..28), and `next_scheduled_scan_at` (indexed UTC timestamp) to `repositories` via clean Alembic migration `0002_add_scan_schedule_fields.py`.
