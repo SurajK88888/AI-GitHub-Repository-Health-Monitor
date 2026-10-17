@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useFetch, usePoll } from "@/lib/hooks";
 import { timeAgo } from "@/lib/utils";
 import { SeverityBadge, ScanStatusBadge } from "@/components/ui/Badge";
 import { Skeleton, EmptyState } from "@/components/ui/Spinner";
+import { ScheduleScanModal } from "@/components/scheduler/ScheduleScanModal";
 import type {
   Repository,
   Paginated,
@@ -347,26 +349,82 @@ export function NotificationsWidget() {
 // ── Widget: Quick Actions ─────────────────────────────────────────────────────
 
 export function QuickActionsWidget() {
-  const actions = [
-    { label: "Add Repository",   href: "/repositories",  icon: "+", color: "bg-brand-500 text-white hover:bg-brand-600" },
-    { label: "View Findings",    href: "/findings",       icon: "🔍", color: "bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200" },
-    { label: "Run AI Actions",   href: "/actions",        icon: "⚡", color: "bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200" },
-    { label: "Notifications",    href: "/notifications",  icon: "🔔", color: "bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200" },
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [selectedRepo, setSelectedRepo] = useState<Repository | null>(null);
+  const { data: reposData, refetch } = useFetch<Paginated<Repository>>("/repositories?limit=50");
+  const repos = reposData?.items ?? [];
+
+  const handleOpenSchedule = () => {
+    if (repos.length > 0) {
+      setSelectedRepo(repos[0]);
+      setScheduleModalOpen(true);
+    }
+  };
+
+  const actions: Array<{
+    label: string;
+    href?: string;
+    onClick?: () => void;
+    icon: string;
+    color: string;
+  }> = [
+    { label: "Add Repository",   href: "/repositories",   icon: "+",  color: "bg-brand-500 text-white hover:bg-brand-600" },
+    { label: "Schedule Scans",   onClick: handleOpenSchedule, icon: "⏱️", color: "bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200" },
+    { label: "View Findings",    href: "/findings",        icon: "🔍", color: "bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200" },
+    { label: "Run AI Actions",   href: "/actions",         icon: "⚡", color: "bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200" },
+    { label: "Notifications",    href: "/notifications",   icon: "🔔", color: "bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200" },
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-2">
-      {actions.map((a) => (
-        <Link key={a.href} href={a.href}>
-          <div
-            className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold cursor-pointer ${a.color} transition-all`}
-          >
-            <span>{a.icon}</span>
-            <span className="text-xs">{a.label}</span>
-          </div>
-        </Link>
-      ))}
-    </div>
+    <>
+      <div className="grid grid-cols-2 gap-2">
+        {actions.map((a) => {
+          const content = (
+            <div
+              className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold cursor-pointer ${a.color} transition-all`}
+            >
+              <span>{a.icon}</span>
+              <span className="text-xs">{a.label}</span>
+            </div>
+          );
+
+          if (a.href) {
+            return (
+              <Link key={a.label} href={a.href}>
+                {content}
+              </Link>
+            );
+          }
+
+          return (
+            <button
+              key={a.label}
+              type="button"
+              onClick={a.onClick}
+              className="text-left w-full cursor-pointer"
+            >
+              {content}
+            </button>
+          );
+        })}
+      </div>
+
+      {scheduleModalOpen && selectedRepo && (
+        <ScheduleScanModal
+          isOpen={scheduleModalOpen}
+          onClose={() => {
+            setScheduleModalOpen(false);
+            setSelectedRepo(null);
+          }}
+          repository={selectedRepo}
+          repositories={repos}
+          onSelectRepository={(r) => setSelectedRepo(r)}
+          onScheduleUpdated={() => {
+            refetch();
+          }}
+        />
+      )}
+    </>
   );
 }
 

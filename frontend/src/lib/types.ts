@@ -12,7 +12,7 @@ export type ScoreBand =
   | "POOR"
   | "CRITICAL";
 
-export type FindingSeverity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";
+export type FindingSeverity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO" | "INFORMATIONAL";
 
 export type ScanStatus =
   | "QUEUED"
@@ -69,6 +69,22 @@ export interface Repository {
   // Joined from latest scan/health
   latest_health_score?: HealthScore | null;
   has_no_code?: boolean;
+  // Auto-scan schedule fields
+  scan_schedule_enabled?: boolean;
+  scan_schedule_frequency?: "DAILY" | "WEEKLY" | "MONTHLY" | null;
+  scan_schedule_time?: string | null;
+  scan_schedule_day?: string | null;
+  next_scheduled_scan_at?: string | null;
+}
+
+export interface RepositoryScheduleConfig {
+  repository_id?: string | null;
+  enabled: boolean;
+  frequency?: "DAILY" | "WEEKLY" | "MONTHLY" | null;
+  time?: string | null;
+  day?: string | null;
+  next_scheduled_scan_at?: string | null;
+  applied_count?: number | null;
 }
 
 

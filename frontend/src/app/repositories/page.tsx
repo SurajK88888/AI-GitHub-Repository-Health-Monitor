@@ -23,6 +23,7 @@ import { useFetch } from "@/lib/hooks";
 import { timeAgo } from "@/lib/utils";
 import { api } from "@/lib/api";
 import type { Repository, Paginated } from "@/lib/types";
+import { ScheduleScanModal, ScheduleButtonWithInfo } from "@/components/scheduler";
 
 const stagger = {
   hidden: {},
@@ -43,15 +44,26 @@ function RepositoriesContent() {
   const [syncResult, setSyncResult] = useState<string | null>(null);
   const searchParams = useSearchParams();
   const autoSyncedRef = useRef(false);
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [selectedRepoForSchedule, setSelectedRepoForSchedule] = useState<Repository | null>(null);
 
   useEffect(() => {
     if (status === "unauthenticated") router.replace("/auth/signin");
   }, [status, router]);
 
-  const { data, loading, error, refetch } =
-    useFetch<Paginated<Repository>>("/repositories?limit=50");
+  const searchParam = (searchParams.get("search") || searchParams.get("q") || "").trim();
+  const path = searchParam
+    ? `/repositories?limit=50&search=${encodeURIComponent(searchParam)}`
+    : "/repositories?limit=50";
 
-  const repos = data?.items ?? [];
+  const { data, loading, error, refetch } =
+    useFetch<Paginated<Repository>>(path);
+
+  const repos = (data?.items ?? []).filter((r) => {
+    if (!searchParam) return true;
+    const q = searchParam.toLowerCase();
+    return r.name.toLowerCase().includes(q) || r.full_name.toLowerCase().includes(q);
+  });
 
   const handleSync = async () => {
     setSyncing(true);
@@ -111,9 +123,28 @@ function RepositoriesContent() {
   return (
     <DashboardLayout
       title="Repositories"
-      subtitle={`${data?.total ?? 0} repositories monitored`}
+      subtitle={
+        searchParam
+          ? `${repos.length} matching "${searchParam}"`
+          : `${data?.total ?? 0} repositories monitored`
+      }
       actions={
         <div className="flex items-center gap-2">
+          {repos.length > 0 && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setSelectedRepoForSchedule(repos[0]);
+                setScheduleModalOpen(true);
+              }}
+              className="flex items-center gap-1.5"
+              title="Configure automated recurring AI scan schedule"
+            >
+              <span>⏱️</span>
+              <span>Schedule Auto-Scans</span>
+            </Button>
+          )}
           <Button
             variant="primary"
             size="sm"
@@ -125,6 +156,23 @@ function RepositoriesContent() {
         </div>
       }
     >
+      {searchParam && (
+        <div className="mb-4 px-4 py-2.5 rounded-xl bg-brand-50 border border-brand-200 text-brand-800 text-xs font-semibold flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span>🔍</span>
+            <span>
+              Search filter active: &ldquo;<span className="font-bold">{searchParam}</span>&rdquo; ({repos.length} found)
+            </span>
+          </div>
+          <button
+            onClick={() => router.push("/repositories")}
+            className="text-brand-600 hover:text-brand-800 font-bold ml-2 underline cursor-pointer"
+          >
+            Clear filter
+          </button>
+        </div>
+      )}
+
       {syncResult && (
         <div className="mb-4 px-4 py-2.5 rounded-xl bg-purple-50 border border-purple-200 text-purple-800 text-xs font-semibold flex items-center justify-between">
           <span>{syncResult}</span>
@@ -147,29 +195,41 @@ function RepositoriesContent() {
         </div>
       ) : repos.length === 0 ? (
         <EmptyState
-          icon="📦"
-          title="No repositories yet"
-          description="Sync your GitHub account to import installed repositories, or install the GitHub App."
+          icon={searchParam ? "🔍" : "📦"}
+          title={searchParam ? `No repositories matching "${searchParam}"` : "No repositories yet"}
+          description={
+            searchParam
+              ? "No monitored repositories match your search criteria. Try another query or clear the filter."
+              : "Sync your GitHub account to import installed repositories, or install the GitHub App."
+          }
           action={
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-4">
-              <Button
-                variant="primary"
-                size="sm"
-                loading={syncing}
-                onClick={handleSync}
-              >
-                ⚡ Sync Repositories from GitHub
-              </Button>
-              <a
-                href="https://github.com/apps/ai-github-repo-health-monitor/installations/new"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Button variant="secondary" size="sm">
-                  Install GitHub App ↗
+            searchParam ? (
+              <div className="mt-4">
+                <Button variant="secondary" size="sm" onClick={() => router.push("/repositories")}>
+                  Clear Search Filter
                 </Button>
-              </a>
-            </div>
+              </div>
+            ) : (
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-4">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  loading={syncing}
+                  onClick={handleSync}
+                >
+                  ⚡ Sync Repositories from GitHub
+                </Button>
+                <a
+                  href="https://github.com/apps/ai-github-repo-health-monitor/installations/new"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Button variant="secondary" size="sm">
+                    Install GitHub App ↗
+                  </Button>
+                </a>
+              </div>
+            )
           }
         />
       ) : (
@@ -268,6 +328,14 @@ function RepositoriesContent() {
                     >
                       Scan Now
                     </Button>
+                    <ScheduleButtonWithInfo
+                      repository={repo}
+                      compact
+                      onOpenScheduleModal={(targetRepo) => {
+                        setSelectedRepoForSchedule(targetRepo);
+                        setScheduleModalOpen(true);
+                      }}
+                    />
                     <Link href={`/repositories/${repo.id}`}>
                       <Button variant="secondary" size="sm">
                         Details →
@@ -279,6 +347,22 @@ function RepositoriesContent() {
             </motion.div>
           ))}
         </motion.div>
+      )}
+
+      {selectedRepoForSchedule && (
+        <ScheduleScanModal
+          isOpen={scheduleModalOpen}
+          onClose={() => {
+            setScheduleModalOpen(false);
+            setSelectedRepoForSchedule(null);
+          }}
+          repository={selectedRepoForSchedule}
+          repositories={repos}
+          onSelectRepository={(r) => setSelectedRepoForSchedule(r)}
+          onScheduleUpdated={() => {
+            refetch();
+          }}
+        />
       )}
     </DashboardLayout>
   );

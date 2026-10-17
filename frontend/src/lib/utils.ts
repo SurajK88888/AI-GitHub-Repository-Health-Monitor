@@ -74,7 +74,8 @@ export function severityColor(severity: FindingSeverity | NotificationSeverity):
     case "HIGH":     return "text-severity-high";
     case "MEDIUM":   return "text-severity-medium";
     case "LOW":      return "text-severity-low";
-    case "INFO":     return "text-severity-info";
+    case "INFO":
+    case "INFORMATIONAL": return "text-severity-info";
   }
 }
 
@@ -85,7 +86,8 @@ export function severityHex(severity: FindingSeverity | NotificationSeverity): s
     case "HIGH":     return "#fb923c";
     case "MEDIUM":   return "#fbbf24";
     case "LOW":      return "#34d399";
-    case "INFO":     return "#60a5fa";
+    case "INFO":
+    case "INFORMATIONAL": return "#60a5fa";
   }
 }
 
@@ -96,7 +98,8 @@ export function severityBg(severity: FindingSeverity | NotificationSeverity): st
     case "HIGH":     return "bg-orange-500/10 text-orange-400 border-orange-500/20";
     case "MEDIUM":   return "bg-yellow-500/10 text-yellow-400 border-yellow-500/20";
     case "LOW":      return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
-    case "INFO":     return "bg-blue-500/10 text-blue-400 border-blue-500/20";
+    case "INFO":
+    case "INFORMATIONAL": return "bg-blue-500/10 text-blue-400 border-blue-500/20";
   }
 }
 

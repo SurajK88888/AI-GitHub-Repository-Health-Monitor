@@ -55,6 +55,15 @@ class Repository(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     last_scanned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # ── Auto-scan scheduling ──────────────────────────────────────────────────
+    scan_schedule_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    scan_schedule_frequency: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    scan_schedule_time: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    scan_schedule_day: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    next_scheduled_scan_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+
     @property
     def private(self) -> bool:
         return self.is_private

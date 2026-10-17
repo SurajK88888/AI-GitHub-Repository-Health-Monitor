@@ -6,19 +6,21 @@ import type { ScoreBand, FindingSeverity, ScanStatus, AIActionStatus } from "@/l
 // ── Severity badge ────────────────────────────────────────────────────────────
 
 const SEVERITY_STYLES: Record<FindingSeverity, string> = {
-  CRITICAL: "bg-red-50 text-red-700 border border-red-200",
-  HIGH:     "bg-orange-50 text-orange-700 border border-orange-200",
-  MEDIUM:   "bg-amber-50 text-amber-700 border border-amber-200",
-  LOW:      "bg-blue-50 text-blue-700 border border-blue-200",
-  INFO:     "bg-gray-100 text-gray-600 border border-gray-200",
+  CRITICAL:      "bg-red-50 text-red-700 border border-red-200",
+  HIGH:          "bg-orange-50 text-orange-700 border border-orange-200",
+  MEDIUM:        "bg-amber-50 text-amber-700 border border-amber-200",
+  LOW:           "bg-blue-50 text-blue-700 border border-blue-200",
+  INFO:          "bg-gray-100 text-gray-600 border border-gray-200",
+  INFORMATIONAL: "bg-gray-100 text-gray-600 border border-gray-200",
 };
 
 const SEVERITY_DOT: Record<FindingSeverity, string> = {
-  CRITICAL: "bg-red-500",
-  HIGH:     "bg-orange-500",
-  MEDIUM:   "bg-amber-500",
-  LOW:      "bg-blue-500",
-  INFO:     "bg-gray-400",
+  CRITICAL:      "bg-red-500",
+  HIGH:          "bg-orange-500",
+  MEDIUM:        "bg-amber-500",
+  LOW:           "bg-blue-500",
+  INFO:          "bg-gray-400",
+  INFORMATIONAL: "bg-gray-400",
 };
 
 export function SeverityBadge({
@@ -28,10 +30,11 @@ export function SeverityBadge({
   severity: FindingSeverity;
   className?: string;
 }) {
+  const label = severity === "INFORMATIONAL" ? "INFO" : severity;
   return (
-    <span className={cn("badge", SEVERITY_STYLES[severity], className)}>
-      <span className={cn("w-1.5 h-1.5 rounded-full", SEVERITY_DOT[severity])} />
-      {severity}
+    <span className={cn("badge", SEVERITY_STYLES[severity] ?? SEVERITY_STYLES.INFO, className)}>
+      <span className={cn("w-1.5 h-1.5 rounded-full", SEVERITY_DOT[severity] ?? SEVERITY_DOT.INFO)} />
+      {label}
     </span>
   );
 }

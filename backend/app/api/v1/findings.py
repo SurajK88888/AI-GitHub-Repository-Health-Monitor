@@ -72,7 +72,7 @@ def _finding_to_response(f: Finding) -> FindingResponse:
 async def list_findings(
     repo_id: uuid.UUID,
     category: FindingCategory | None = Query(default=None),
-    severity: FindingSeverity | None = Query(default=None),
+    severity: str | None = Query(default=None),
     finding_status: FindingStatus | None = Query(default=None, alias="status"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
@@ -86,7 +86,8 @@ async def list_findings(
     if category is not None:
         stmt = stmt.where(Finding.category == category.value)
     if severity is not None:
-        stmt = stmt.where(Finding.severity == severity.value)
+        sev_value = "INFORMATIONAL" if severity.upper() == "INFO" else severity.upper()
+        stmt = stmt.where(Finding.severity == sev_value)
     if finding_status is not None:
         stmt = stmt.where(Finding.status == finding_status.value)
 
@@ -145,7 +146,7 @@ async def get_finding(
 )
 async def list_workspace_findings(
     category: FindingCategory | None = Query(default=None),
-    severity: FindingSeverity | None = Query(default=None),
+    severity: str | None = Query(default=None),
     finding_status: FindingStatus | None = Query(default=None, alias="status"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200, alias="limit"),
@@ -164,7 +165,8 @@ async def list_workspace_findings(
     if category is not None:
         stmt = stmt.where(Finding.category == category.value)
     if severity is not None:
-        stmt = stmt.where(Finding.severity == severity.value)
+        sev_value = "INFORMATIONAL" if severity.upper() == "INFO" else severity.upper()
+        stmt = stmt.where(Finding.severity == sev_value)
     if finding_status is not None:
         stmt = stmt.where(Finding.status == finding_status.value)
 

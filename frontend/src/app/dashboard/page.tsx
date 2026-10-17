@@ -8,8 +8,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { DraggableDashboard } from "@/components/dashboard/DraggableDashboard";
-import { useDashboardLayout } from "@/lib/hooks";
+import { useDashboardLayout, useFetch } from "@/lib/hooks";
 import { api } from "@/lib/api";
+import { ScheduleScanModal } from "@/components/scheduler/ScheduleScanModal";
+import type { Repository, Paginated } from "@/lib/types";
 import {
   OverviewScoresWidget,
   CriticalFindingsWidget,
@@ -72,6 +74,17 @@ export default function DashboardPage() {
   const router = useRouter();
   const { widgets, saveWidgets } = useDashboardLayout();
   const [syncing, setSyncing] = useState(false);
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [selectedRepo, setSelectedRepo] = useState<Repository | null>(null);
+  const { data: reposData, refetch: refetchRepos } = useFetch<Paginated<Repository>>("/repositories?limit=50");
+  const repos = reposData?.items ?? [];
+
+  const handleOpenSchedule = () => {
+    if (repos.length > 0) {
+      setSelectedRepo(repos[0]);
+      setScheduleModalOpen(true);
+    }
+  };
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -133,13 +146,23 @@ export default function DashboardPage() {
           <button
             onClick={handleSync}
             disabled={syncing}
-            className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold rounded-lg border border-gray-200 transition-colors shadow-sm disabled:opacity-60"
+            className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold rounded-lg border border-gray-200 transition-colors shadow-sm disabled:opacity-60 cursor-pointer"
           >
             <span>⚡</span>
             <span>{syncing ? "Syncing..." : "Sync GitHub"}</span>
           </button>
+          {repos.length > 0 && (
+            <button
+              onClick={handleOpenSchedule}
+              className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold rounded-lg border border-gray-200 transition-colors shadow-sm cursor-pointer"
+              title="Configure automated recurring AI scan schedule"
+            >
+              <span>⏱️</span>
+              <span>Schedule Scans</span>
+            </button>
+          )}
           <Link href="/repositories">
-            <button className="flex items-center gap-1.5 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg transition-colors shadow-brand-sm">
+            <button className="flex items-center gap-1.5 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg transition-colors shadow-brand-sm cursor-pointer">
               <span className="text-base font-bold leading-none">+</span>
               <span>New Scan</span>
             </button>
@@ -153,6 +176,22 @@ export default function DashboardPage() {
         renderWidget={(widget) => renderWidget(widget.id)}
         getTitle={(id) => WIDGET_TITLES[id] ?? id}
       />
+
+      {scheduleModalOpen && selectedRepo && (
+        <ScheduleScanModal
+          isOpen={scheduleModalOpen}
+          onClose={() => {
+            setScheduleModalOpen(false);
+            setSelectedRepo(null);
+          }}
+          repository={selectedRepo}
+          repositories={repos}
+          onSelectRepository={(r) => setSelectedRepo(r)}
+          onScheduleUpdated={() => {
+            refetchRepos();
+          }}
+        />
+      )}
     </DashboardLayout>
   );
 }

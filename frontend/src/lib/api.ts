@@ -68,7 +68,16 @@ async function request<T>(
     try {
       const body = await res.json();
       code = body.code ?? code;
-      message = body.message ?? body.detail ?? message;
+      const rawDetail = body.detail ?? body.message;
+      if (typeof rawDetail === "string") {
+        message = rawDetail;
+      } else if (Array.isArray(rawDetail)) {
+        message = rawDetail
+          .map((d: unknown) => (typeof d === "string" ? d : (d as { msg?: string }).msg || JSON.stringify(d)))
+          .join("; ");
+      } else if (rawDetail && typeof rawDetail === "object") {
+        message = (rawDetail as { message?: string }).message || JSON.stringify(rawDetail);
+      }
     } catch {
       // ignore parse error
     }

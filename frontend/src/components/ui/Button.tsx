@@ -14,6 +14,7 @@ interface ButtonProps {
   type?: "button" | "submit" | "reset";
   className?: string;
   icon?: ReactNode;
+  title?: string;
 }
 
 const VARIANTS = {
@@ -40,10 +41,12 @@ export function Button({
   type = "button",
   className,
   icon,
+  title,
 }: ButtonProps) {
   return (
     <motion.button
       type={type}
+      title={title}
       onClick={onClick}
       disabled={disabled || loading}
       whileTap={{ scale: 0.97 }}

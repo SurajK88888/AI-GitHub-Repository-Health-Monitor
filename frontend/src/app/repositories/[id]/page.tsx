@@ -19,6 +19,7 @@ import { ScoreRing } from "@/components/ui/ScoreRing";
 import { ScoreBandBadge, SeverityBadge, AIActionStatusBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { TechStackVisualizer } from "@/components/repository/TechStackVisualizer";
+import { ScheduleScanModal, ScheduleButtonWithInfo } from "@/components/scheduler";
 import {
 
   Spinner,
@@ -456,14 +457,21 @@ export default function RepositoryDetailPage() {
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [executingId, setExecutingId] = useState<string | null>(null);
   const [activeScanId, setActiveScanId] = useState<string | null>(null);
-
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [localRepo, setLocalRepo] = useState<Repository | null>(null);
 
   useEffect(() => {
     if (status === "unauthenticated") router.replace("/auth/signin");
   }, [status, router]);
 
-  const { data: repo, loading: repoLoading, error: repoError } =
+  const { data: repo, loading: repoLoading, error: repoError, refetch: refetchRepo } =
     useFetch<Repository>(id ? `/repositories/${id}` : null);
+
+  useEffect(() => {
+    if (repo) setLocalRepo(repo);
+  }, [repo]);
+
+  const activeRepo = localRepo ?? repo;
 
   const { data: health, loading: healthLoading, refetch: refetchHealth } =
     useFetch<HealthScore>(id ? `/repositories/${id}/health` : null);
@@ -605,16 +613,22 @@ export default function RepositoryDetailPage() {
           <span>{repo.name}</span>
         </div>
       }
-      subtitle={repo.full_name}
+      subtitle={activeRepo?.full_name ?? repo.full_name}
       actions={
-        <Button
-          variant="primary"
-          size="sm"
-          loading={scanning}
-          onClick={triggerScan}
-        >
-          Scan Now
-        </Button>
+        <div className="flex items-center gap-2">
+          <ScheduleButtonWithInfo
+            repository={activeRepo || repo}
+            onOpenScheduleModal={() => setScheduleModalOpen(true)}
+          />
+          <Button
+            variant="primary"
+            size="sm"
+            loading={scanning}
+            onClick={triggerScan}
+          >
+            Scan Now
+          </Button>
+        </div>
       }
     >
       {hasNoCode && (
@@ -1129,6 +1143,18 @@ export default function RepositoryDetailPage() {
           </div>
         )}
       </AnimatePresence>
+
+      {activeRepo && (
+        <ScheduleScanModal
+          isOpen={scheduleModalOpen}
+          onClose={() => setScheduleModalOpen(false)}
+          repository={activeRepo}
+          onScheduleUpdated={(updated) => {
+            setLocalRepo(updated);
+            refetchRepo();
+          }}
+        />
+      )}
     </DashboardLayout>
   );
 }
