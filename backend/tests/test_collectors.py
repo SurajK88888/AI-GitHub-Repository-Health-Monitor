@@ -44,6 +44,7 @@ def _ctx(**overrides: object) -> ScanContext:
         "recent_commits": [],
         "open_issues": [],
         "open_pull_requests": [],
+        "recent_ci_runs": [],
     }
     defaults.update(overrides)
     return ScanContext(**defaults)  # type: ignore[arg-type]
@@ -150,6 +151,50 @@ class TestSecurityCollector:
         result = self.collector.collect(ctx)
         assert any("SECURITY" in f.title for f in result.findings)
 
+    def test_inline_private_key_content_triggers_critical_finding(self) -> None:
+        ctx = _ctx(
+            file_paths=["src/auth.py", "SECURITY.md", ".github/dependabot.yml"],
+            file_contents={"src/auth.py": "KEY = '-----BEGIN RSA PRIVATE KEY-----\nMIIE...'\n"},
+        )
+        result = self.collector.collect(ctx)
+        critical_findings = [f for f in result.findings if f.severity == "CRITICAL"]
+        assert len(critical_findings) == 1
+        assert "Private Key" in critical_findings[0].title
+        assert "auth.py" in (critical_findings[0].evidence or {}).get("file_path", "")
+
+    def test_inline_aws_key_triggers_critical_finding(self) -> None:
+        ctx = _ctx(
+            file_paths=["config.json", "SECURITY.md", ".github/dependabot.yml"],
+            file_contents={"config.json": '{"aws_key": "AKIA1234567890ABCDEF"}'},
+        )
+        result = self.collector.collect(ctx)
+        assert any(
+            "AWS Access Key" in f.title and f.severity == "CRITICAL" for f in result.findings
+        )
+
+    def test_dummy_example_secrets_do_not_trigger_critical_finding(self) -> None:
+        ctx = _ctx(
+            file_paths=["README.md", "SECURITY.md", ".github/dependabot.yml"],
+            file_contents={"README.md": "Set AWS_KEY=your_key_placeholder or AKIAEXAMPLETEST1234"},
+        )
+        result = self.collector.collect(ctx)
+        assert not any(f.severity == "CRITICAL" for f in result.findings)
+
+    def test_inline_github_token_triggers_critical_finding_and_caps_score(self) -> None:
+        ctx = _ctx(
+            file_paths=["scripts/deploy.sh", "SECURITY.md", ".github/dependabot.yml"],
+            file_contents={
+                "scripts/deploy.sh": "export GH_TOKEN=ghp_1234567890abcdef1234567890abcdef1234\n"
+            },
+        )
+        result = self.collector.collect(ctx)
+        assert any(
+            "GitHub Personal Access Token" in f.title and f.severity == "CRITICAL"
+            for f in result.findings
+        )
+        score_metrics = [m for m in result.metrics if m.metric_name == "security_score"]
+        assert score_metrics[0].metric_value <= 30.0
+
 
 # ═════════════════════════════════════════════════════════════════════════════
 # Code Quality collector
@@ -197,6 +242,57 @@ class TestCodeQualityCollector:
         assert any("no source code" in f.title.lower() for f in result.findings)
         score_metric = next(m for m in result.metrics if m.metric_name == "code_quality_score")
         assert score_metric.metric_value == 0.0
+
+    def test_ci_latest_run_failed_produces_high_finding_and_deduction(self) -> None:
+        ctx = _ctx(
+            file_paths=[".github/workflows/ci.yml", "tests/test_main.py", "pyproject.toml"],
+            recent_ci_runs=[
+                {"id": 101, "name": "CI", "status": "completed", "conclusion": "failure"},
+                {"id": 100, "name": "CI", "status": "completed", "conclusion": "success"},
+            ],
+        )
+        result = self.collector.collect(ctx)
+        assert any(
+            "Latest CI workflow run failed" in f.title and f.severity == "HIGH"
+            for f in result.findings
+        )
+        score_metric = next(m for m in result.metrics if m.metric_name == "code_quality_score")
+        assert score_metric.metric_value == 80.0  # 100 - 20 (failed run)
+
+    def test_ci_low_pass_rate_produces_medium_finding(self) -> None:
+        ctx = _ctx(
+            file_paths=[".github/workflows/ci.yml", "tests/test_main.py", "pyproject.toml"],
+            recent_ci_runs=[
+                {"id": 104, "name": "CI", "status": "completed", "conclusion": "success"},
+                {"id": 103, "name": "CI", "status": "completed", "conclusion": "failure"},
+                {"id": 102, "name": "CI", "status": "completed", "conclusion": "failure"},
+                {"id": 101, "name": "CI", "status": "completed", "conclusion": "failure"},
+            ],
+        )
+        result = self.collector.collect(ctx)
+        assert any(
+            "Low CI workflow pass rate" in f.title and f.severity == "MEDIUM"
+            for f in result.findings
+        )
+        rate_metric = next(m for m in result.metrics if m.metric_name == "ci_success_rate")
+        assert rate_metric.metric_value == 25.0
+        score_metric = next(m for m in result.metrics if m.metric_name == "code_quality_score")
+        assert score_metric.metric_value == 90.0  # 100 - 10 (low pass rate)
+
+    def test_ci_successful_runs_produce_no_negative_finding(self) -> None:
+        ctx = _ctx(
+            file_paths=[".github/workflows/ci.yml", "tests/test_main.py", "pyproject.toml"],
+            recent_ci_runs=[
+                {"id": 201, "name": "CI", "status": "completed", "conclusion": "success"},
+                {"id": 200, "name": "CI", "status": "completed", "conclusion": "success"},
+            ],
+        )
+        result = self.collector.collect(ctx)
+        assert not any(f.severity in ("HIGH", "MEDIUM") for f in result.findings)
+        rate_metric = next(m for m in result.metrics if m.metric_name == "ci_success_rate")
+        assert rate_metric.metric_value == 100.0
+        score_metric = next(m for m in result.metrics if m.metric_name == "code_quality_score")
+        assert score_metric.metric_value == 100.0
 
 
 # ═════════════════════════════════════════════════════════════════════════════
