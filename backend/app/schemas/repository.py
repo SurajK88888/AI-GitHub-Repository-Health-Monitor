@@ -36,7 +36,36 @@ class RepositoryResponse(TimestampedResponse):
     latest_health_score: dict[str, object] | None = None
     has_no_code: bool = False
 
+    # Auto-scan schedule fields
+    scan_schedule_enabled: bool = False
+    scan_schedule_frequency: str | None = None
+    scan_schedule_time: str | None = None
+    scan_schedule_day: str | None = None
+    next_scheduled_scan_at: datetime | None = None
+
     model_config = APIModel.model_config
+
+
+class RepositoryScheduleRequest(APIModel):
+    """Request to configure auto-scan schedule for a repository."""
+
+    enabled: bool = True
+    frequency: str = Field(default="DAILY")
+    time: str = Field(default="02:00")
+    day: str | None = None
+    apply_to_all: bool = False
+
+
+class RepositoryScheduleResponse(APIModel):
+    """Auto-scan schedule configuration response."""
+
+    repository_id: uuid.UUID | None = None
+    enabled: bool
+    frequency: str | None = None
+    time: str | None = None
+    day: str | None = None
+    next_scheduled_scan_at: datetime | None = None
+    applied_count: int | None = None
 
 
 class PaginatedRepositoryResponse(PaginatedResponse):

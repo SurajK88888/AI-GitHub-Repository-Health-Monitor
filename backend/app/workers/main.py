@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import Any
 
 import arq
+from arq import cron
 from arq.connections import RedisSettings
 
 from app.config import get_settings
@@ -27,6 +28,11 @@ class WorkerSettings:
         run_repository_scan,
         run_approved_action,
         dispatch_scheduled_scans,
+    ]
+
+    # Run scheduled scan dispatcher every 15 minutes
+    cron_jobs: list[Any] = [
+        cron(dispatch_scheduled_scans, minute={0, 15, 30, 45}),
     ]
 
     redis_settings = RedisSettings.from_dsn(settings.redis_url)

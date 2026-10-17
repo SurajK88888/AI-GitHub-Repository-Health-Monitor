@@ -1,7 +1,27 @@
 # Short-Term Memory
 
 ## Current status
-- **Session 20 (2026-10-14): Functional & Secure Topbar Repository Search Bar.**
+- **Session 21 (2026-10-17): Automated AI Scan Scheduling (User-Configurable Date, Time & Day).**
+  - **Feature:**
+    1. **Data Model & Migration:** Added `scan_schedule_enabled`, `scan_schedule_frequency` (DAILY, WEEKLY, MONTHLY), `scan_schedule_time` (HH:MM UTC), `scan_schedule_day` (MON..SUN or 1..28), and `next_scheduled_scan_at` (indexed UTC timestamp) to `repositories` via clean Alembic migration `0002_add_scan_schedule_fields.py`.
+    2. **Scheduler Utility:** Built and unit-tested `compute_next_scheduled_scan` in `backend/app/services/scanner/scheduler.py` handling DAILY, WEEKLY, and MONTHLY schedule calculations and rollover.
+    3. **REST API Endpoints:** Added `GET /repositories/{id}/schedule`, `PUT /repositories/{id}/schedule` (supports single repo and `apply_to_all` workspace bulk update), and `POST /repositories/schedule-all` in `backend/app/api/v1/repositories.py`.
+    4. **ARQ Worker Cron:** Configured periodic cron job in `backend/app/workers/main.py` (`cron(dispatch_scheduled_scans, minute={0, 15, 30, 45})`). Enhanced `dispatch_scheduled_scans` in `backend/app/workers/jobs/scheduled_scans.py` to trigger user-due scans, advance next run timestamps, and maintain 24h default check for non-scheduled repos.
+    5. **Frontend UI Modal, Dedicated `components/scheduler/` & Cross-Page Access:**
+       - Extracted into dedicated reusable folder `frontend/src/components/scheduler/` containing `ScheduleScanModal.tsx`, `TimeSelectorClock.tsx`, `ScheduleButtonWithInfo.tsx`, and barrel `index.ts`.
+       - Built `TimeSelectorClock.tsx` with an interactive SVG analog clock face (hour/minute hands rotate live, dial numbers clickable), 24h hour grid & minute intervals (`:00`, `:05`... `:55`), AM/PM toggles, quick adjustment steppers (`-1h`, `+1h`, `-15m`, `+15m` with balanced padding and `min-w-[38px]`/`min-w-[48px]`), quick preset pills, and live local timezone translation (`📍 Local Time: ...`).
+       - Replaced native monthly `<select>` with custom dropdown displaying 5 day selection options at a time (`max-h-[180px] overflow-y-auto`), active day auto-scrolling into view, and click-outside dismissal.
+       - Built `ScheduleButtonWithInfo.tsx` featuring an attached interactive `ℹ` info tag. Hovering or clicking the info tag reveals schedule details (frequency, UTC time, local timezone conversion, and next scan timestamp if configured, or "Not scheduled yet" if disabled).
+       - Connected `ScheduleScanModal` across all key entry points:
+         - **Repository Detail Page (`/repositories/[id]`):** In the page header using `ScheduleButtonWithInfo`.
+         - **Repositories List Page (`/repositories`):** In the header action button and on every repository card action row via `ScheduleButtonWithInfo`.
+         - **Dashboard Page (`/dashboard`):** In the header actions ("Schedule Scans") and inside the **Quick Actions Widget** (`⏱️ Schedule Scans` action).
+         - Supports multi-repo switching in the modal header and workspace-wide "Apply to all" synchronization.
+  - **Verification:**
+    - Alembic upgrade `0001 -> 0002` applied cleanly with code 0.
+    - Unit tests: 8 passed in `backend/tests/test_scheduler.py`.
+    - Ruff lint and formatting clean.
+    - Frontend TypeScript `npx tsc --noEmit` passed with 0 errors.
   - **Issue Reported:** Global Topbar search bar was static with no interaction or search capability.
   - **Feature:**
     1. **Interactive Topbar Search Bar:** Implemented two-way query binding with real-time filtering, safe character length limit (`maxLength={100}`), click-outside dismissal, and clear (✕) button in `frontend/src/components/layout/Topbar.tsx`.

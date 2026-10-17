@@ -8,6 +8,7 @@ Endpoints:
 
 from __future__ import annotations
 
+from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -24,9 +25,14 @@ from app.models.repository import Repository
 from app.models.workspace import WorkspaceMember
 from app.schemas.ai import AIAnalysisResponse
 from app.schemas.common import PaginatedResponse
-from app.schemas.repository import RepositoryResponse
+from app.schemas.repository import (
+    RepositoryResponse,
+    RepositoryScheduleRequest,
+    RepositoryScheduleResponse,
+)
 from app.services import audit_service
 from app.services.auth import CurrentUser, get_current_user
+from app.services.scanner.scheduler import compute_next_scheduled_scan
 
 router = APIRouter(prefix="/repositories", tags=["repositories"])
 
@@ -283,3 +289,180 @@ async def get_latest_ai_analysis(
     if analysis is None:
         return None
     return AIAnalysisResponse.model_validate(analysis)
+
+
+@router.get(
+    "/{repository_id}/schedule",
+    response_model=RepositoryScheduleResponse,
+    summary="Get repository auto-scan schedule",
+)
+async def get_repository_schedule(
+    repository_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> RepositoryScheduleResponse:
+    """Return the auto-scan schedule for the specified repository."""
+    if not current_user.workspace_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No workspace found.",
+        )
+    await _assert_workspace_member(db, current_user.workspace_id, current_user.user_id)
+    repo = await _get_repo_or_404(db, repository_id, current_user.workspace_id)
+
+    return RepositoryScheduleResponse(
+        repository_id=repo.id,
+        enabled=repo.scan_schedule_enabled,
+        frequency=repo.scan_schedule_frequency,
+        time=repo.scan_schedule_time,
+        day=repo.scan_schedule_day,
+        next_scheduled_scan_at=repo.next_scheduled_scan_at,
+    )
+
+
+@router.put(
+    "/{repository_id}/schedule",
+    response_model=RepositoryScheduleResponse,
+    summary="Configure repository auto-scan schedule",
+)
+async def update_repository_schedule(
+    repository_id: UUID,
+    body: RepositoryScheduleRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> RepositoryScheduleResponse:
+    """Set or disable the auto-scan schedule for a repository (with optional bulk workspace apply)."""
+    if not current_user.workspace_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No workspace found.",
+        )
+    await _assert_workspace_member(db, current_user.workspace_id, current_user.user_id)
+    repo = await _get_repo_or_404(db, repository_id, current_user.workspace_id)
+
+    next_scan_at: datetime | None = None
+    if body.enabled:
+        next_scan_at = compute_next_scheduled_scan(
+            frequency=body.frequency,
+            time_str=body.time,
+            day_str=body.day,
+        )
+
+    repo.scan_schedule_enabled = body.enabled
+    repo.scan_schedule_frequency = body.frequency if body.enabled else None
+    repo.scan_schedule_time = body.time if body.enabled else None
+    repo.scan_schedule_day = body.day if body.enabled else None
+    repo.next_scheduled_scan_at = next_scan_at
+
+    applied_count = 1
+    if body.apply_to_all:
+        bulk_stmt = select(Repository).where(
+            Repository.workspace_id == current_user.workspace_id,
+            Repository.monitoring_enabled.is_(True),
+            Repository.id != repo.id,
+        )
+        bulk_res = await db.execute(bulk_stmt)
+        other_repos = list(bulk_res.scalars().all())
+        for other in other_repos:
+            other.scan_schedule_enabled = body.enabled
+            other.scan_schedule_frequency = body.frequency if body.enabled else None
+            other.scan_schedule_time = body.time if body.enabled else None
+            other.scan_schedule_day = body.day if body.enabled else None
+            other.next_scheduled_scan_at = next_scan_at
+            applied_count += 1
+
+    await audit_service.log_event(
+        db,
+        action="REPOSITORY_SCHEDULE_UPDATED",
+        workspace_id=current_user.workspace_id,
+        user_id=current_user.user_id,
+        resource_type="repository",
+        resource_id=str(repo.id),
+        metadata={
+            "enabled": body.enabled,
+            "frequency": body.frequency,
+            "time": body.time,
+            "day": body.day,
+            "apply_to_all": body.apply_to_all,
+            "applied_count": applied_count,
+        },
+    )
+    await db.commit()
+    await db.refresh(repo)
+
+    return RepositoryScheduleResponse(
+        repository_id=repo.id,
+        enabled=repo.scan_schedule_enabled,
+        frequency=repo.scan_schedule_frequency,
+        time=repo.scan_schedule_time,
+        day=repo.scan_schedule_day,
+        next_scheduled_scan_at=repo.next_scheduled_scan_at,
+        applied_count=applied_count,
+    )
+
+
+@router.post(
+    "/schedule-all",
+    response_model=RepositoryScheduleResponse,
+    summary="Configure auto-scan schedule for all workspace repositories",
+)
+async def update_all_repositories_schedule(
+    body: RepositoryScheduleRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> RepositoryScheduleResponse:
+    """Set or disable auto-scan schedule for all monitored repositories in the workspace."""
+    if not current_user.workspace_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No workspace found.",
+        )
+    await _assert_workspace_member(db, current_user.workspace_id, current_user.user_id)
+
+    next_scan_at: datetime | None = None
+    if body.enabled:
+        next_scan_at = compute_next_scheduled_scan(
+            frequency=body.frequency,
+            time_str=body.time,
+            day_str=body.day,
+        )
+
+    stmt = select(Repository).where(
+        Repository.workspace_id == current_user.workspace_id,
+        Repository.monitoring_enabled.is_(True),
+    )
+    res = await db.execute(stmt)
+    repos = list(res.scalars().all())
+    for r in repos:
+        r.scan_schedule_enabled = body.enabled
+        r.scan_schedule_frequency = body.frequency if body.enabled else None
+        r.scan_schedule_time = body.time if body.enabled else None
+        r.scan_schedule_day = body.day if body.enabled else None
+        r.next_scheduled_scan_at = next_scan_at
+
+    await audit_service.log_event(
+        db,
+        action="WORKSPACE_REPOSITORIES_SCHEDULE_UPDATED",
+        workspace_id=current_user.workspace_id,
+        user_id=current_user.user_id,
+        resource_type="workspace",
+        resource_id=str(current_user.workspace_id),
+        metadata={
+            "enabled": body.enabled,
+            "frequency": body.frequency,
+            "time": body.time,
+            "day": body.day,
+            "applied_count": len(repos),
+        },
+    )
+    await db.commit()
+
+    return RepositoryScheduleResponse(
+        repository_id=None,
+        enabled=body.enabled,
+        frequency=body.frequency if body.enabled else None,
+        time=body.time if body.enabled else None,
+        day=body.day if body.enabled else None,
+        next_scheduled_scan_at=next_scan_at,
+        applied_count=len(repos),
+    )

@@ -23,6 +23,7 @@ import { useFetch } from "@/lib/hooks";
 import { timeAgo } from "@/lib/utils";
 import { api } from "@/lib/api";
 import type { Repository, Paginated } from "@/lib/types";
+import { ScheduleScanModal, ScheduleButtonWithInfo } from "@/components/scheduler";
 
 const stagger = {
   hidden: {},
@@ -43,6 +44,8 @@ function RepositoriesContent() {
   const [syncResult, setSyncResult] = useState<string | null>(null);
   const searchParams = useSearchParams();
   const autoSyncedRef = useRef(false);
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [selectedRepoForSchedule, setSelectedRepoForSchedule] = useState<Repository | null>(null);
 
   useEffect(() => {
     if (status === "unauthenticated") router.replace("/auth/signin");
@@ -127,6 +130,21 @@ function RepositoriesContent() {
       }
       actions={
         <div className="flex items-center gap-2">
+          {repos.length > 0 && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setSelectedRepoForSchedule(repos[0]);
+                setScheduleModalOpen(true);
+              }}
+              className="flex items-center gap-1.5"
+              title="Configure automated recurring AI scan schedule"
+            >
+              <span>⏱️</span>
+              <span>Schedule Auto-Scans</span>
+            </Button>
+          )}
           <Button
             variant="primary"
             size="sm"
@@ -310,6 +328,14 @@ function RepositoriesContent() {
                     >
                       Scan Now
                     </Button>
+                    <ScheduleButtonWithInfo
+                      repository={repo}
+                      compact
+                      onOpenScheduleModal={(targetRepo) => {
+                        setSelectedRepoForSchedule(targetRepo);
+                        setScheduleModalOpen(true);
+                      }}
+                    />
                     <Link href={`/repositories/${repo.id}`}>
                       <Button variant="secondary" size="sm">
                         Details →
@@ -321,6 +347,22 @@ function RepositoriesContent() {
             </motion.div>
           ))}
         </motion.div>
+      )}
+
+      {selectedRepoForSchedule && (
+        <ScheduleScanModal
+          isOpen={scheduleModalOpen}
+          onClose={() => {
+            setScheduleModalOpen(false);
+            setSelectedRepoForSchedule(null);
+          }}
+          repository={selectedRepoForSchedule}
+          repositories={repos}
+          onSelectRepository={(r) => setSelectedRepoForSchedule(r)}
+          onScheduleUpdated={() => {
+            refetch();
+          }}
+        />
       )}
     </DashboardLayout>
   );
