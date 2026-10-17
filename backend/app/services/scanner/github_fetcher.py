@@ -36,6 +36,9 @@ _CONTENT_FILES = [
     "security.md",
     ".github/dependabot.yml",
     ".github/dependabot.yaml",
+    ".env.example",
+    "docker-compose.yml",
+    "docker-compose.yaml",
 ]
 
 _COMMIT_WINDOW_DAYS = 30
@@ -161,6 +164,28 @@ async def build_scan_context(client: GitHubClient) -> ScanContext:
     except Exception:
         logger.warning("Could not fetch PRs for %s/%s", owner, repo)
 
+    # ── 7. Recent CI workflow runs (last 10 runs) ─────────────────
+    recent_ci_runs: list[dict[str, Any]] = []
+    try:
+        runs_data = await client.get(
+            f"/repos/{owner}/{repo}/actions/runs",
+            params={"per_page": 10},
+        )
+        if isinstance(runs_data, dict):
+            runs_raw = runs_data.get("workflow_runs", [])
+            for r in runs_raw[:10]:
+                recent_ci_runs.append(
+                    {
+                        "id": r.get("id"),
+                        "name": r.get("name", "CI"),
+                        "status": r.get("status"),
+                        "conclusion": r.get("conclusion"),
+                        "head_branch": r.get("head_branch"),
+                    }
+                )
+    except Exception:
+        logger.debug("Could not fetch workflow runs for %s/%s", owner, repo)
+
     return ScanContext(
         repository_id=str(repo_data.get("id", "")),
         owner=owner,
@@ -178,6 +203,7 @@ async def build_scan_context(client: GitHubClient) -> ScanContext:
         recent_commits=recent_commits,
         open_issues=open_issues,
         open_pull_requests=open_prs,
+        recent_ci_runs=recent_ci_runs,
     )
 
 

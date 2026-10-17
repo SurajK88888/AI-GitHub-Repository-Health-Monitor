@@ -85,6 +85,9 @@ class ScanContext:
     # ── Optional: GitHub security info ───────────────────────────────────────
     has_vulnerability_alerts: bool | None = None  # None = not accessible
 
+    # ── CI / Actions execution status (optional, empty if not accessible) ────
+    recent_ci_runs: list[dict[str, Any]] = field(default_factory=list)
+
     def has_file(self, *names: str) -> bool:
         """Return True if any of *names* exist anywhere in the tree."""
         lowered = [n.lower() for n in names]
