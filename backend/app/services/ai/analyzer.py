@@ -153,9 +153,286 @@ def _parse_recommendations(
     return recommendations
 
 
+def _extract_architecture_cues(
+    scan_ctx: Any | None,
+    repo: Repository,
+) -> tuple[list[str], list[dict[str, Any]]]:
+    """Extract architecture cues and fallback tech stack nodes from scan context and repo metadata."""
+    cues: list[str] = []
+    fallback_nodes: list[dict[str, Any]] = []
+
+    # 1. Primary language & description
+    repo_lang = getattr(repo, "language", None)
+    if repo_lang:
+        cues.append(f"Primary language: {repo_lang}")
+    repo_desc = getattr(repo, "description", None)
+    if repo_desc:
+        cues.append(f"Repository description: {repo_desc[:200]}")
+
+    # 2. Extract from ScanContext file_paths & file_contents
+    if scan_ctx is not None and getattr(scan_ctx, "file_paths", None):
+        paths: list[str] = scan_ctx.file_paths
+        lowered_paths = {p.lower() for p in paths}
+        contents: dict[str, str] = getattr(scan_ctx, "file_contents", {}) or {}
+
+        # Look for key manifests and infrastructure
+        detected_manifests: list[str] = []
+        for p in paths:
+            p_low = p.lower()
+            if any(
+                p_low.endswith(m) or p_low == m
+                for m in (
+                    "package.json",
+                    "pyproject.toml",
+                    "requirements.txt",
+                    "docker-compose.yml",
+                    "docker-compose.yaml",
+                    "dockerfile",
+                    "go.mod",
+                    "cargo.toml",
+                    "pom.xml",
+                    "build.gradle",
+                )
+            ):
+                detected_manifests.append(p)
+
+        if detected_manifests:
+            cues.append(f"Manifest & config files detected: {', '.join(detected_manifests[:10])}")
+
+        # Check CI workflows
+        has_ci = any(".github/workflows" in p_low for p_low in lowered_paths)
+        if has_ci:
+            cues.append("CI/CD pipeline: GitHub Actions (.github/workflows detected)")
+            fallback_nodes.append(
+                {
+                    "name": "GitHub Actions",
+                    "layer": "devops",
+                    "purpose": "Automated Continuous Integration and workflow testing",
+                    "confidence": "high",
+                }
+            )
+
+        # Check Docker / Containers
+        has_docker = any("docker" in p_low for p_low in lowered_paths)
+        if has_docker:
+            cues.append("Containerization: Docker / Docker Compose configurations present")
+            fallback_nodes.append(
+                {
+                    "name": "Docker",
+                    "layer": "devops",
+                    "purpose": "Multi-container application packaging and environment virtualization",
+                    "confidence": "high",
+                }
+            )
+
+        # Deep inspect package.json (frontend / node)
+        for path_k, content_v in contents.items():
+            if "package.json" in path_k.lower() and content_v:
+                try:
+                    import json
+
+                    pkg_data = json.loads(content_v)
+                    all_deps = {
+                        **pkg_data.get("dependencies", {}),
+                        **pkg_data.get("devDependencies", {}),
+                    }
+                    deps_keys = [k.lower() for k in all_deps.keys()]
+                    found_client_libs: list[str] = []
+                    if "next" in deps_keys:
+                        found_client_libs.append("Next.js")
+                        fallback_nodes.append(
+                            {
+                                "name": "Next.js",
+                                "layer": "client",
+                                "purpose": "Full-stack React framework with SSR and App Router",
+                                "confidence": "high",
+                            }
+                        )
+                    if "react" in deps_keys and "Next.js" not in found_client_libs:
+                        found_client_libs.append("React")
+                        fallback_nodes.append(
+                            {
+                                "name": "React",
+                                "layer": "client",
+                                "purpose": "Declarative component-based user interface library",
+                                "confidence": "high",
+                            }
+                        )
+                    if any("tailwind" in k for k in deps_keys):
+                        found_client_libs.append("Tailwind CSS")
+                        fallback_nodes.append(
+                            {
+                                "name": "Tailwind CSS",
+                                "layer": "client",
+                                "purpose": "Utility-first design styling framework",
+                                "confidence": "high",
+                            }
+                        )
+                    if "typescript" in deps_keys:
+                        found_client_libs.append("TypeScript")
+                        fallback_nodes.append(
+                            {
+                                "name": "TypeScript",
+                                "layer": "client",
+                                "purpose": "Static type checking and enterprise interface definitions",
+                                "confidence": "high",
+                            }
+                        )
+                    if found_client_libs:
+                        cues.append(
+                            f"Frontend libraries ({path_k}): {', '.join(found_client_libs)}"
+                        )
+                except Exception:
+                    pass
+
+            # Deep inspect pyproject.toml / requirements.txt
+            if (
+                "pyproject.toml" in path_k.lower() or "requirements.txt" in path_k.lower()
+            ) and content_v:
+                v_lower = content_v.lower()
+                found_py_libs: list[str] = []
+                if "fastapi" in v_lower:
+                    found_py_libs.append("FastAPI")
+                    fallback_nodes.append(
+                        {
+                            "name": "FastAPI",
+                            "layer": "backend",
+                            "purpose": "Asynchronous REST API framework powering core services",
+                            "confidence": "high",
+                        }
+                    )
+                if "sqlalchemy" in v_lower or "asyncpg" in v_lower or "psycopg" in v_lower:
+                    found_py_libs.append("PostgreSQL / SQLAlchemy")
+                    fallback_nodes.append(
+                        {
+                            "name": "PostgreSQL",
+                            "layer": "data",
+                            "purpose": "Primary relational database persistence engine",
+                            "confidence": "high",
+                        }
+                    )
+                if "redis" in v_lower or "arq" in v_lower or "celery" in v_lower:
+                    found_py_libs.append("Redis / Task Queue")
+                    fallback_nodes.append(
+                        {
+                            "name": "Redis",
+                            "layer": "data",
+                            "purpose": "In-memory cache and asynchronous job queue broker",
+                            "confidence": "high",
+                        }
+                    )
+                if found_py_libs:
+                    cues.append(f"Backend & data libraries ({path_k}): {', '.join(found_py_libs)}")
+
+    # Deduplicate fallback nodes by name
+    unique_fallbacks: list[dict[str, Any]] = []
+    seen = set()
+    for fn in fallback_nodes:
+        if fn["name"].lower() not in seen:
+            seen.add(fn["name"].lower())
+            unique_fallbacks.append(fn)
+
+    return cues, unique_fallbacks
+
+
+def _parse_tech_stack(
+    ai_output: dict[str, Any],
+    fallback_nodes: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Parse and sanitize tech stack components from AI JSON output."""
+    raw_stack = ai_output.get("tech_stack", [])
+    valid_layers = {"client", "backend", "data", "devops"}
+    parsed: list[dict[str, Any]] = []
+    seen_names: set[str] = set()
+
+    if isinstance(raw_stack, list):
+        for item in raw_stack:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("name", "")).strip()[:100]
+            if not name or name.lower() in seen_names:
+                continue
+            seen_names.add(name.lower())
+
+            layer = str(item.get("layer", "")).strip().lower()
+            if layer not in valid_layers:
+                l_search = f"{layer} {name}".lower()
+                if any(
+                    k in l_search
+                    for k in (
+                        "client",
+                        "ui",
+                        "front",
+                        "web",
+                        "react",
+                        "next",
+                        "vue",
+                        "svelte",
+                        "tailwind",
+                        "css",
+                        "html",
+                    )
+                ):
+                    layer = "client"
+                elif any(
+                    k in l_search
+                    for k in (
+                        "db",
+                        "data",
+                        "sql",
+                        "postgres",
+                        "redis",
+                        "mongo",
+                        "storage",
+                        "cache",
+                        "supabase",
+                    )
+                ):
+                    layer = "data"
+                elif any(
+                    k in l_search
+                    for k in (
+                        "devops",
+                        "ci",
+                        "cd",
+                        "docker",
+                        "action",
+                        "deploy",
+                        "pipeline",
+                        "compose",
+                    )
+                ):
+                    layer = "devops"
+                else:
+                    layer = "backend"
+
+            purpose = str(item.get("purpose", "")).strip()[:300]
+            if not purpose:
+                purpose = f"{name} service integration."
+
+            confidence = str(item.get("confidence", "high")).strip().lower()
+            if confidence not in {"high", "medium", "low"}:
+                confidence = "high"
+
+            parsed.append(
+                {
+                    "name": name,
+                    "layer": layer,
+                    "purpose": purpose,
+                    "confidence": confidence,
+                }
+            )
+
+    if parsed:
+        return parsed[:12]
+
+    return (fallback_nodes or [])[:12]
+
+
 async def run_ai_analysis(
     scan_id: uuid.UUID,
     db: AsyncSession,
+    scan_ctx: Any | None = None,
 ) -> AIAnalysis | None:
     """Run AI analysis for a completed scan and persist results.
 
@@ -223,7 +500,7 @@ async def run_ai_analysis(
                 HealthScoreCategory.health_score_id == health_score.id
             )
         )
-        categories = [
+        categories: list[dict[str, Any]] = [
             {
                 "category": c.category,
                 "raw_score": c.raw_score,
@@ -258,6 +535,9 @@ async def run_ai_analysis(
         findings = list(findings_result.scalars().all())
         sanitized_findings = _sanitize_findings(findings)
 
+        # ── Extract architecture cues & fallback tech stack ────────────────
+        arch_cues, fallback_nodes = _extract_architecture_cues(scan_ctx, repo)
+
         # ── Build prompt ───────────────────────────────────────────────────
         prompt = build_analysis_prompt(
             repo_full_name=repo.full_name,
@@ -270,6 +550,7 @@ async def run_ai_analysis(
             previous_score=previous_score,
             category_scores=categories,
             top_findings=sanitized_findings,
+            architecture_cues=arch_cues,
         )
 
         # ── Call AI Provider ───────────────────────────────────────────────
@@ -285,6 +566,9 @@ async def run_ai_analysis(
         for rec in new_recommendations:
             db.add(rec)
 
+        # ── Parse tech stack ───────────────────────────────────────────────
+        detected_tech_stack = _parse_tech_stack(ai_output, fallback_nodes)
+
         # ── Mark analysis COMPLETED ────────────────────────────────────────
         analysis.status = AIAnalysisStatus.COMPLETED.value
         analysis.completed_at = datetime.now(UTC)
@@ -299,6 +583,7 @@ async def run_ai_analysis(
                 }
                 for r in ai_output.get("recommendations", [])[:5]
             ],
+            "tech_stack": detected_tech_stack,
         }
         await db.commit()
         logger.info(

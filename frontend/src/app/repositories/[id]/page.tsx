@@ -126,11 +126,18 @@ const CATEGORY_DETAILS: Record<string, CategoryDetail> = {
       baseScore: 100,
       deductions: [
         {
-          check: "Hardcoded Secrets Detected",
+          check: "Committed Secret / Key File",
           deduction: "-50 pts / incident",
           severity: "CRITICAL",
           condition:
-            "Committed AWS keys, GitHub tokens, Slack webhooks, or RSA/EC private keys.",
+            "Committed private keys (.pem, .key, id_rsa) or environment files (.env).",
+        },
+        {
+          check: "Inline Hardcoded Secrets / Token Leaks",
+          deduction: "-50 pts / incident",
+          severity: "CRITICAL",
+          condition:
+            "Unencrypted private key blocks, AWS access keys (AKIA...), GitHub tokens (ghp_...), or Slack tokens scanned in file contents.",
         },
         {
           check: "Missing Dependabot Configuration",
@@ -141,7 +148,7 @@ const CATEGORY_DETAILS: Record<string, CategoryDetail> = {
         {
           check: "Missing Security Policy",
           deduction: "-10 pts",
-          severity: "LOW",
+          severity: "MEDIUM",
           condition: "No SECURITY.md file explaining responsible disclosure procedures.",
         },
       ],
@@ -157,7 +164,7 @@ const CATEGORY_DETAILS: Record<string, CategoryDetail> = {
     icon: "🧪",
     shortDesc: "CI/CD automated pipelines, testing suites, and linter configurations.",
     summary:
-      "Assesses engineering discipline: presence of automated CI/CD workflows, test coverage indicators, and automated code style formatters.",
+      "Assesses engineering discipline: presence of automated CI/CD workflows, workflow execution health, test coverage indicators, and automated code style formatters.",
     calculationLogic: {
       baseScore: 100,
       deductions: [
@@ -173,6 +180,20 @@ const CATEGORY_DETAILS: Record<string, CategoryDetail> = {
           deduction: "-30 pts",
           severity: "HIGH",
           condition: "No active GitHub Actions workflows located in .github/workflows/.",
+        },
+        {
+          check: "Recent CI Workflow Run Failed",
+          deduction: "-20 pts",
+          severity: "HIGH",
+          condition:
+            "The most recent completed GitHub Actions workflow run failed or timed out.",
+        },
+        {
+          check: "Low CI Execution Pass Rate (<50%)",
+          deduction: "-10 pts",
+          severity: "MEDIUM",
+          condition:
+            "Fewer than 50% of recent completed GitHub Actions workflow runs succeeded.",
         },
         {
           check: "No Automated Tests Detected",
@@ -191,7 +212,7 @@ const CATEGORY_DETAILS: Record<string, CategoryDetail> = {
       ],
     },
     capsAndOverrides:
-      "Empty repository triggers an overall repository score safety cap at ≤ 30.0 (CRITICAL band).",
+      "Empty repository triggers an overall repository score safety cap at ≤ 30.0 (CRITICAL band). Open HIGH severity findings cap the category score at ≤ 60.",
     engineFile: "collectors/code_quality.py",
   },
   DEPENDENCIES: {
@@ -201,16 +222,30 @@ const CATEGORY_DETAILS: Record<string, CategoryDetail> = {
     icon: "📦",
     shortDesc: "Package manifests, lockfiles, and deterministic reproducible builds.",
     summary:
-      "Evaluates package manager adoption, dependency declarations, and lockfile synchronization to ensure safe, reproducible builds.",
+      "Evaluates package manager adoption, dependency declarations, active CVE / Dependabot vulnerability alerts, and lockfile synchronization.",
     calculationLogic: {
       baseScore: 100,
       deductions: [
         {
-          check: "Empty Repository / No Manifests",
-          deduction: "Set to 0 pts",
-          severity: "INFO",
+          check: "Critical Dependency Vulnerability Alert",
+          deduction: "-25 to -40 pts",
+          severity: "CRITICAL",
           condition:
-            "No recognized dependency manifests found in an empty repository with no code.",
+            "Active open CRITICAL severity Dependabot / CVE vulnerability alerts found in project dependencies.",
+        },
+        {
+          check: "High Dependency Vulnerability Alert",
+          deduction: "-15 to -25 pts",
+          severity: "HIGH",
+          condition:
+            "Active open HIGH severity Dependabot / CVE vulnerability alerts found in project dependencies.",
+        },
+        {
+          check: "Medium / Low Dependency Vulnerability Alert",
+          deduction: "-5 to -15 pts",
+          severity: "MEDIUM",
+          condition:
+            "Active open medium or low severity Dependabot vulnerability alerts in project dependencies.",
         },
         {
           check: "Missing Committed Lockfile",
@@ -218,6 +253,13 @@ const CATEGORY_DETAILS: Record<string, CategoryDetail> = {
           severity: "MEDIUM",
           condition:
             "Manifest (package.json, Pipfile, go.mod, Cargo.toml) exists without corresponding lockfile.",
+        },
+        {
+          check: "Empty Repository / No Manifests",
+          deduction: "Set to 0 pts",
+          severity: "INFO",
+          condition:
+            "No recognized dependency manifests found in an empty repository with no code.",
         },
         {
           check: "No Manifests in Codebase",
@@ -229,7 +271,7 @@ const CATEGORY_DETAILS: Record<string, CategoryDetail> = {
       ],
     },
     capsAndOverrides:
-      "Clamped between 0 and 100. Capped at ≤ 60 if HIGH severity findings exist.",
+      "CRITICAL vulnerability alerts cap Dependencies score at ≤ 30.0; HIGH alerts cap score at ≤ 60.0. Clamped between 0 and 100.",
     engineFile: "collectors/dependencies.py",
   },
   ISSUES: {
@@ -237,33 +279,44 @@ const CATEGORY_DETAILS: Record<string, CategoryDetail> = {
     label: "Issues",
     weight: 10,
     icon: "🐛",
-    shortDesc: "Issue resolution velocity, stale backlog, and unassigned bugs.",
+    shortDesc: "Issue resolution velocity, stale backlog, and scale-aware triage.",
     summary:
-      "Measures maintainer responsiveness and issue turnaround times by evaluating aging unaddressed tickets.",
+      "Measures maintainer responsiveness and issue turnaround times by evaluating aging tickets and team capacity-adjusted backlog volume.",
     calculationLogic: {
       baseScore: 100,
       deductions: [
         {
-          check: "High Volume of Stale Issues",
-          deduction: "-40 pts",
-          severity: "HIGH",
-          condition: "10 or more open issues with no updates or activity in >90 days.",
+          check: "Stale Issues (No activity for 90+ days)",
+          deduction: "-3 pts / issue (max -30 pts)",
+          severity: "MEDIUM",
+          condition:
+            "Open issues with no comments or updates for over 90 days (HIGH if ≥10, MEDIUM if ≥3, LOW if <3).",
         },
         {
-          check: "Stale Issues Detected",
+          check: "Large Unmaintained Issue Backlog",
           deduction: "-20 pts",
           severity: "MEDIUM",
-          condition: "Between 1 and 9 open issues with no activity in >90 days.",
+          condition:
+            "Open issues exceed capacity threshold (max(50, active_contributors × 15)) with ≥40% (or ≥10) stale.",
         },
         {
-          check: "Unassigned Open Issues",
+          check: "Large Active Issue Backlog",
           deduction: "-10 pts",
           severity: "LOW",
-          condition: "10 or more open issues lack any assignee.",
+          condition:
+            "Open issues exceed capacity threshold but issues are actively triaged and maintained (<40% stale).",
+        },
+        {
+          check: "No Issue Templates Found",
+          deduction: "0 pts",
+          severity: "INFO",
+          condition:
+            "No .github/ISSUE_TEMPLATE found to guide reporters in providing structured context.",
         },
       ],
     },
-    capsAndOverrides: "A clean issue backlog (0 open issues) receives a perfect 100 score.",
+    capsAndOverrides:
+      "A clean issue backlog (0 open issues) receives a perfect 100 score. Clamped between 0.0 and 100.0.",
     engineFile: "collectors/issues.py",
   },
   PULL_REQUESTS: {
@@ -271,33 +324,44 @@ const CATEGORY_DETAILS: Record<string, CategoryDetail> = {
     label: "Pull Requests",
     weight: 10,
     icon: "🔀",
-    shortDesc: "PR review throughput, merge latency, and abandoned draft PRs.",
+    shortDesc: "PR review throughput, merge latency, and scale-aware review velocity.",
     summary:
-      "Tracks review bottlenecks, pull request turnaround time, and abandoned drafts that delay contributions.",
+      "Tracks review bottlenecks, pull request turnaround time, stale non-draft PRs, and team-scaled review throughput.",
     calculationLogic: {
       baseScore: 100,
       deductions: [
         {
-          check: "Excessive Aging Pull Requests",
-          deduction: "-40 pts",
-          severity: "HIGH",
-          condition: "5 or more open PRs without any activity in >30 days.",
-        },
-        {
-          check: "Aging Pull Requests Detected",
-          deduction: "-20 pts",
+          check: "Stale Non-Draft Pull Requests",
+          deduction: "-5 pts / PR (max -30 pts)",
           severity: "MEDIUM",
-          condition: "Between 1 and 4 open PRs without any activity in >30 days.",
+          condition:
+            "Non-draft PRs without any activity or review updates for over 30 days (HIGH if ≥5, MEDIUM if ≥2, LOW if 1).",
         },
         {
-          check: "Abandoned Draft Pull Requests",
-          deduction: "-10 pts",
+          check: "Large Unmaintained PR Backlog",
+          deduction: "-15 pts",
+          severity: "MEDIUM",
+          condition:
+            "Open PRs exceed capacity threshold (max(20, active_contributors × 5)) with ≥30% (or ≥4) stale.",
+        },
+        {
+          check: "High Open PR Volume",
+          deduction: "-5 pts",
           severity: "LOW",
-          condition: "Open draft pull requests inactive for >60 days.",
+          condition:
+            "Open PRs exceed capacity threshold but PR velocity is actively moving (<30% stale).",
+        },
+        {
+          check: "No Pull Request Template Found",
+          deduction: "0 pts",
+          severity: "INFO",
+          condition:
+            "No .github/pull_request_template.md found to standardize PR descriptions.",
         },
       ],
     },
-    capsAndOverrides: "0 open PRs receives a default 100 score (no review bottleneck).",
+    capsAndOverrides:
+      "0 open PRs receives a default 100 score (no review bottleneck). Clamped between 0.0 and 100.0.",
     engineFile: "collectors/pull_requests.py",
   },
   ACTIVITY: {
@@ -307,38 +371,33 @@ const CATEGORY_DETAILS: Record<string, CategoryDetail> = {
     icon: "📈",
     shortDesc: "Commit frequency, maintenance recency, and contributor distribution.",
     summary:
-      "Measures project momentum and vitality: frequency of recent commits, date of last code push, and bus-factor risk.",
+      "Measures project momentum and vitality: frequency of recent commits, date of last code push, and active contributors in the last 30 days.",
     calculationLogic: {
       baseScore: 100,
       deductions: [
         {
-          check: "Zero Commits in 30 Days",
-          deduction: "-30 pts",
-          severity: "MEDIUM",
-          condition: "No commits pushed to the repository in the last 30 days.",
+          check: "Dormant / Inactive Repository (>90 days)",
+          deduction: "-40 pts",
+          severity: "HIGH",
+          condition: "No commits detected in the repository in the last 90+ days.",
         },
         {
-          check: "Low Commit Frequency",
+          check: "Low Recent Activity (>30 days)",
           deduction: "-15 pts",
           severity: "LOW",
-          condition: "Between 1 and 4 commits pushed in the last 30 days (5+ is active).",
+          condition: "No commits detected in the repository in the last 30 to 90 days.",
         },
         {
-          check: "Dormant / Abandoned Repository",
-          deduction: "-30 pts",
-          severity: "HIGH",
-          condition: "Most recent repository push was more than 90 days ago.",
-        },
-        {
-          check: "High Contributor Concentration",
+          check: "Zero Commits in 30 Days Window",
           deduction: "-10 pts",
-          severity: "LOW",
+          severity: "INFO",
           condition:
-            "A single developer authored >80% of recent commits (single point of failure / bus-factor risk).",
+            "No commits recorded in the 30-day window while repository has prior commit history.",
         },
       ],
     },
-    capsAndOverrides: "Clamped at minimum 0.0, maximum 100.0.",
+    capsAndOverrides:
+      "Clamped at minimum 0.0, maximum 100.0. Open HIGH severity findings cap the category score at ≤ 60.",
     engineFile: "collectors/activity.py",
   },
   CONFIGURATION: {
@@ -346,36 +405,58 @@ const CATEGORY_DETAILS: Record<string, CategoryDetail> = {
     label: "Configuration",
     weight: 5,
     icon: "⚙️",
-    shortDesc: "Branch protection rules, default branch naming, and repository metadata.",
+    shortDesc: "Branch protection rules, code review enforcement, and repository metadata.",
     summary:
-      "Checks repository setup: default branch protection policies, modern branch conventions, description, and metadata tags.",
+      "Checks repository setup: default branch protection rules, required PR code reviews, CI status check enforcement, and metadata discoverability.",
     calculationLogic: {
       baseScore: 100,
       deductions: [
         {
-          check: "Missing Branch Protection",
-          deduction: "-20 pts",
-          severity: "HIGH",
+          check: "No Branch Protection on Default Branch",
+          deduction: "-10 pts",
+          severity: "LOW",
           condition:
-            "Default branch does not enforce required reviews, status checks, or pull requests.",
+            "Default branch has no branch protection rules enabled on a repository with source code.",
         },
         {
-          check: "Legacy Default Branch Name",
+          check: "Branch Protection Without Required PR Reviews",
           deduction: "-5 pts",
+          severity: "LOW",
+          condition:
+            "Branch protection is enabled on default branch, but code reviews are not required before merging.",
+        },
+        {
+          check: "Branch Protection Without Required CI Status Checks",
+          deduction: "0 pts",
           severity: "INFO",
-          condition: "Default branch is named 'master' instead of modern standard 'main'.",
+          condition:
+            "Branch protection is active, but automated CI checks are not enforced before merging.",
         },
         {
           check: "Missing Repository Description",
-          deduction: "-5 pts",
+          deduction: "-15 pts",
           severity: "LOW",
           condition: "Repository metadata lacks a description for discoverability.",
         },
         {
-          check: "Missing Topics / Tags",
-          deduction: "-5 pts",
+          check: "Missing .github/ Configuration Directory",
+          deduction: "-10 pts",
           severity: "LOW",
-          condition: "Repository has no topics defined for search indexing.",
+          condition:
+            "No .github/ directory found for workflows, templates, or Dependabot.",
+        },
+        {
+          check: "No Repository Topics Set",
+          deduction: "0 pts",
+          severity: "INFO",
+          condition: "No topics configured to improve discoverability on GitHub.",
+        },
+        {
+          check: "Non-Standard Default Branch Name",
+          deduction: "0 pts",
+          severity: "INFO",
+          condition:
+            "Default branch name differs from modern conventions (main, trunk, develop).",
         },
       ],
     },
@@ -520,7 +601,7 @@ export default function RepositoryDetailPage() {
         setScanMsg(`Scan ${liveScan.status.toLowerCase()}.`);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveScan?.status]);
 
   const triggerScan = useCallback(async () => {
@@ -596,9 +677,9 @@ export default function RepositoryDetailPage() {
     );
 
   const TABS: { id: Tab; label: string }[] = [
-    { id: "findings",        label: "Findings" },
+    { id: "findings", label: "Findings" },
     { id: "recommendations", label: "Recommendations" },
-    { id: "actions",         label: "AI Actions" },
+    { id: "actions", label: "AI Actions" },
   ];
 
   return (
@@ -659,8 +740,8 @@ export default function RepositoryDetailPage() {
             scanMsg.includes("complete")
               ? "bg-emerald-50 border-emerald-200 text-emerald-700"
               : scanMsg.includes("queued") || activeScanId
-              ? "bg-blue-50 border-blue-200 text-blue-700"
-              : "bg-red-50 border-red-200 text-red-700"
+                ? "bg-blue-50 border-blue-200 text-blue-700"
+                : "bg-red-50 border-red-200 text-red-700"
           )}
         >
           {(scanMsg.includes("queued") || activeScanId) && (
@@ -714,12 +795,12 @@ export default function RepositoryDetailPage() {
                   };
                   return [
                     { key: "DOCUMENTATION", label: "Documentation", score: getCategoryScore("DOCUMENTATION", hs.documentation_score) },
-                    { key: "SECURITY",      label: "Security",      score: getCategoryScore("SECURITY", hs.security_score) },
-                    { key: "CODE_QUALITY",  label: "Code Quality",  score: getCategoryScore("CODE_QUALITY", hs.code_quality_score) },
-                    { key: "DEPENDENCIES",  label: "Dependencies",  score: getCategoryScore("DEPENDENCIES", hs.dependency_score) },
-                    { key: "ISSUES",        label: "Issues",        score: getCategoryScore("ISSUES", hs.issues_score) },
+                    { key: "SECURITY", label: "Security", score: getCategoryScore("SECURITY", hs.security_score) },
+                    { key: "CODE_QUALITY", label: "Code Quality", score: getCategoryScore("CODE_QUALITY", hs.code_quality_score) },
+                    { key: "DEPENDENCIES", label: "Dependencies", score: getCategoryScore("DEPENDENCIES", hs.dependency_score) },
+                    { key: "ISSUES", label: "Issues", score: getCategoryScore("ISSUES", hs.issues_score) },
                     { key: "PULL_REQUESTS", label: "Pull Requests", score: getCategoryScore("PULL_REQUESTS", hs.pull_requests_score) },
-                    { key: "ACTIVITY",      label: "Activity",      score: getCategoryScore("ACTIVITY", hs.activity_score) },
+                    { key: "ACTIVITY", label: "Activity", score: getCategoryScore("ACTIVITY", hs.activity_score) },
                     { key: "CONFIGURATION", label: "Configuration", score: getCategoryScore("CONFIGURATION", hs.configuration_score) },
                   ].map(({ key, label, score }) => (
                     <CategoryBar
@@ -731,9 +812,9 @@ export default function RepositoryDetailPage() {
                       onOpenInfo={(k) => setSelectedCategoryInfo(k)}
                       color={scoreBandHex(
                         score >= 90 ? "EXCELLENT" :
-                        score >= 75 ? "GOOD" :
-                        score >= 60 ? "NEEDS_ATTENTION" :
-                        score >= 40 ? "POOR" : "CRITICAL"
+                          score >= 75 ? "GOOD" :
+                            score >= 60 ? "NEEDS_ATTENTION" :
+                              score >= 40 ? "POOR" : "CRITICAL"
                       )}
                     />
                   ));
@@ -753,6 +834,7 @@ export default function RepositoryDetailPage() {
         health={health}
         findings={findingsData?.items}
         hasNoCode={hasNoCode}
+        aiAnalysis={aiAnalysis}
       />
 
       {/* AI Executive Summary & Risk Analysis */}
@@ -765,7 +847,7 @@ export default function RepositoryDetailPage() {
                 AI
               </span>
               <h3 className="text-sm font-semibold text-gray-900">
-                Gemini Health Assessment
+                Health Assessment
               </h3>
             </div>
             <span className="text-[11px] font-medium text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200">
@@ -896,10 +978,10 @@ export default function RepositoryDetailPage() {
                       <div className="shrink-0 flex flex-col items-end gap-2">
                         <span className={cn(
                           "text-xs px-2 py-0.5 rounded-full border font-semibold",
-                          rec.status === "PENDING"   ? "bg-gray-100 text-gray-600 border-gray-200" :
-                          rec.status === "APPROVED"  ? "bg-blue-50 text-blue-700 border-blue-200" :
-                          rec.status === "COMPLETED" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
-                          "bg-red-50 text-red-700 border-red-200"
+                          rec.status === "PENDING" ? "bg-gray-100 text-gray-600 border-gray-200" :
+                            rec.status === "APPROVED" ? "bg-blue-50 text-blue-700 border-blue-200" :
+                              rec.status === "COMPLETED" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                                "bg-red-50 text-red-700 border-red-200"
                         )}>
                           {rec.status}
                         </span>
@@ -1082,12 +1164,12 @@ export default function RepositoryDetailPage() {
                                       rule.severity === "CRITICAL"
                                         ? "bg-red-50 text-red-700 border border-red-200"
                                         : rule.severity === "HIGH"
-                                        ? "bg-orange-50 text-orange-700 border border-orange-200"
-                                        : rule.severity === "MEDIUM"
-                                        ? "bg-yellow-50 text-yellow-800 border border-yellow-200"
-                                        : rule.severity === "LOW"
-                                        ? "bg-blue-50 text-blue-700 border border-blue-200"
-                                        : "bg-gray-100 text-gray-600 border border-gray-200"
+                                          ? "bg-orange-50 text-orange-700 border border-orange-200"
+                                          : rule.severity === "MEDIUM"
+                                            ? "bg-yellow-50 text-yellow-800 border border-yellow-200"
+                                            : rule.severity === "LOW"
+                                              ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                              : "bg-gray-100 text-gray-600 border border-gray-200"
                                     )}
                                   >
                                     {rule.severity}

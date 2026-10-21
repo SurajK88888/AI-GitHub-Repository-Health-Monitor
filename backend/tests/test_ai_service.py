@@ -20,7 +20,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.services.ai.analyzer import _parse_recommendations, _sanitize_findings
+from app.services.ai.analyzer import (
+    _extract_architecture_cues,
+    _parse_recommendations,
+    _parse_tech_stack,
+    _sanitize_findings,
+)
 from app.services.ai.client import GeminiClientError, call_gemini
 from app.services.ai.prompts import PROMPT_VERSION, build_analysis_prompt
 
@@ -385,3 +390,203 @@ async def test_call_ai_routes_to_groq_when_provider_set() -> None:
         )
         assert result == expected
         mock_groq.assert_awaited_once()
+
+
+# ── Tech Stack and Architecture Cues ──────────────────────────────────────────
+
+
+def test_build_prompt_includes_architecture_cues() -> None:
+    cues = [
+        "Primary language: Python",
+        "Manifest & config files detected: frontend/package.json, backend/pyproject.toml",
+        "Frontend libraries (frontend/package.json): Next.js, React, Tailwind CSS",
+    ]
+    prompt = build_analysis_prompt(
+        repo_full_name="owner/repo",
+        overall_score=88.0,
+        score_band="GOOD",
+        previous_score=None,
+        category_scores=[],
+        top_findings=[],
+        architecture_cues=cues,
+    )
+    assert "Detected Architecture & Tech Stack Indicators:" in prompt
+    assert "Next.js, React, Tailwind CSS" in prompt
+    assert "tech_stack" in prompt
+
+
+def test_extract_architecture_cues_with_manifests() -> None:
+    repo = MagicMock()
+    repo.language = "Python"
+    repo.description = "AI repo health monitor"
+
+    scan_ctx = MagicMock()
+    scan_ctx.file_paths = [
+        "frontend/package.json",
+        "backend/pyproject.toml",
+        "docker-compose.yml",
+        ".github/workflows/ci.yml",
+    ]
+    scan_ctx.file_contents = {
+        "frontend/package.json": json.dumps(
+            {
+                "dependencies": {"next": "15.0", "react": "19.0", "tailwindcss": "3.4"},
+            }
+        ),
+        "backend/pyproject.toml": """
+[project]
+dependencies = ["fastapi", "sqlalchemy", "redis", "arq"]
+""",
+    }
+
+    cues, fallbacks = _extract_architecture_cues(scan_ctx, repo)
+    assert any("Primary language: Python" in c for c in cues)
+    assert any("Next.js" in c for c in cues)
+    assert any("FastAPI" in c for c in cues)
+    assert any("Docker" in c for c in cues)
+    assert any("GitHub Actions" in c for c in cues)
+
+    fallback_names = {f["name"] for f in fallbacks}
+    assert "Next.js" in fallback_names
+    assert "FastAPI" in fallback_names
+    assert "Docker" in fallback_names
+    assert "GitHub Actions" in fallback_names
+
+
+def test_parse_tech_stack_valid_output() -> None:
+    ai_output: dict[str, Any] = {
+        "tech_stack": [
+            {
+                "name": "Next.js",
+                "layer": "client",
+                "purpose": "Full-stack React frontend framework",
+                "confidence": "high",
+            },
+            {
+                "name": "FastAPI",
+                "layer": "backend",
+                "purpose": "REST API service",
+                "confidence": "high",
+            },
+            {
+                "name": "PostgreSQL",
+                "layer": "data",
+                "purpose": "Relational data store",
+                "confidence": "high",
+            },
+        ]
+    }
+    parsed = _parse_tech_stack(ai_output)
+    assert len(parsed) == 3
+    assert parsed[0]["name"] == "Next.js"
+    assert parsed[0]["layer"] == "client"
+    assert parsed[1]["name"] == "FastAPI"
+    assert parsed[1]["layer"] == "backend"
+    assert parsed[2]["name"] == "PostgreSQL"
+    assert parsed[2]["layer"] == "data"
+
+
+def test_parse_tech_stack_layer_inference() -> None:
+    ai_output: dict[str, Any] = {
+        "tech_stack": [
+            {
+                "name": "Tailwind CSS",
+                "layer": "styling",  # unrecognized, should map to client
+                "purpose": "Styling system",
+            },
+            {
+                "name": "Redis",
+                "layer": "cache",  # unrecognized, should map to data
+                "purpose": "Cache broker",
+            },
+            {
+                "name": "GitHub Actions",
+                "layer": "pipeline",  # unrecognized, should map to devops
+                "purpose": "CI workflow",
+            },
+        ]
+    }
+    parsed = _parse_tech_stack(ai_output)
+    assert parsed[0]["layer"] == "client"
+    assert parsed[1]["layer"] == "data"
+    assert parsed[2]["layer"] == "devops"
+
+
+def test_parse_tech_stack_fallback_when_empty() -> None:
+    fallback = [
+        {
+            "name": "Python",
+            "layer": "backend",
+            "purpose": "Primary language runtime",
+            "confidence": "high",
+        }
+    ]
+    parsed = _parse_tech_stack({"tech_stack": []}, fallback_nodes=fallback)
+    assert len(parsed) == 1
+    assert parsed[0]["name"] == "Python"
+
+
+# ── Rate Limiting & Backoff Tests ─────────────────────────────────────────────
+
+
+def test_extract_retry_after_from_header() -> None:
+    import httpx
+
+    from app.services.ai.client import _extract_retry_after
+
+    resp = httpx.Response(429, headers={"retry-after": "3.5"})
+    assert _extract_retry_after(resp) == 3.5
+
+    resp_ms = httpx.Response(429, headers={"retry-after-ms": "2500"})
+    assert _extract_retry_after(resp_ms) == 2.5
+
+
+def test_extract_retry_after_from_body() -> None:
+    import httpx
+
+    from app.services.ai.client import _extract_retry_after
+
+    resp = httpx.Response(
+        429,
+        json={"error": {"message": "Rate limit exceeded. Please try again in 4.2s."}},
+    )
+    assert _extract_retry_after(resp) == 4.2
+
+
+def test_calculate_backoff_adds_jitter() -> None:
+    import httpx
+
+    from app.services.ai.client import _calculate_backoff
+
+    resp = httpx.Response(429, headers={"retry-after": "5.0"})
+    delay = _calculate_backoff(attempt=0, response=resp)
+    assert 5.5 <= delay <= 6.5
+
+    # Without response, base exponential + jitter
+    delay_default = _calculate_backoff(attempt=1)
+    # base is 2 * (2**1) = 4, jitter is 0.5 to 2.0
+    assert 4.5 <= delay_default <= 6.0
+
+
+@pytest.mark.asyncio
+async def test_call_ai_falls_back_to_gemini_when_groq_fails() -> None:
+    from app.services.ai.client import AIClientError, call_ai
+
+    expected = {"summary": "Gemini fallback success"}
+    with patch("app.services.ai.client.get_settings") as mock_settings:
+        mock_settings.return_value.ai_provider = "groq"
+        mock_settings.return_value.google_ai_api_key = "test_key"
+        mock_settings.return_value.gemini_api_key = ""
+
+        with (
+            patch("app.services.ai.client.call_groq", side_effect=AIClientError("Rate limit 429")),
+            patch("app.services.ai.client.call_gemini", new_callable=AsyncMock) as mock_gemini,
+        ):
+            mock_gemini.return_value = expected
+            result = await call_ai(
+                system_instruction="sys",
+                user_prompt="prompt",
+                provider="groq",
+            )
+            assert result == expected
+            mock_gemini.assert_awaited_once()

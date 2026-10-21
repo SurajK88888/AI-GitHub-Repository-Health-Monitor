@@ -39,6 +39,17 @@ _CONTENT_FILES = [
     ".env.example",
     "docker-compose.yml",
     "docker-compose.yaml",
+    "package.json",
+    "frontend/package.json",
+    "client/package.json",
+    "web/package.json",
+    "pyproject.toml",
+    "backend/pyproject.toml",
+    "requirements.txt",
+    "backend/requirements.txt",
+    "Dockerfile",
+    "go.mod",
+    "Cargo.toml",
 ]
 
 _COMMIT_WINDOW_DAYS = 30
@@ -186,6 +197,46 @@ async def build_scan_context(client: GitHubClient) -> ScanContext:
     except Exception:
         logger.debug("Could not fetch workflow runs for %s/%s", owner, repo)
 
+    # ── 8. Dependabot alerts (open vulnerability alerts) ──────────
+    dependency_alerts: list[dict[str, Any]] = []
+    try:
+        alerts_data = await client.get(
+            f"/repos/{owner}/{repo}/dependabot/alerts",
+            params={"state": "open", "per_page": 20},
+        )
+        alerts_raw = alerts_data if isinstance(alerts_data, list) else []
+        for a in alerts_raw:
+            advisory = a.get("security_advisory", {})
+            pkg = a.get("dependency", {}).get("package", {})
+            sev = str(advisory.get("severity", "medium")).upper()
+            identifier = (
+                advisory.get("cve_id") or advisory.get("ghsa_id") or f"alert-{a.get('number', '')}"
+            )
+            dependency_alerts.append(
+                {
+                    "number": a.get("number"),
+                    "package_name": pkg.get("name", "unknown"),
+                    "severity": sev,
+                    "identifier": identifier,
+                    "summary": advisory.get("summary", ""),
+                }
+            )
+    except Exception:
+        logger.debug("Could not fetch dependabot alerts for %s/%s", owner, repo)
+
+    # ── 9. Branch protection on default branch ───────────────────
+    branch_protection: dict[str, Any] | None = None
+    try:
+        protection_data = await client.get(
+            f"/repos/{owner}/{repo}/branches/{default_branch}/protection"
+        )
+        if isinstance(protection_data, dict):
+            branch_protection = protection_data
+    except Exception:
+        logger.debug(
+            "Could not fetch branch protection for %s/%s on %s", owner, repo, default_branch
+        )
+
     return ScanContext(
         repository_id=str(repo_data.get("id", "")),
         owner=owner,
@@ -204,6 +255,8 @@ async def build_scan_context(client: GitHubClient) -> ScanContext:
         open_issues=open_issues,
         open_pull_requests=open_prs,
         recent_ci_runs=recent_ci_runs,
+        dependency_alerts=dependency_alerts,
+        branch_protection=branch_protection,
     )
 
 

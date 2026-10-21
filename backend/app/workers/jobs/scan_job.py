@@ -135,7 +135,7 @@ async def _execute_scan(scan_uuid: uuid.UUID, db: AsyncSession) -> None:
             return
 
         # AI analysis — fault-tolerant, failure does NOT block anything
-        await run_ai_analysis(scan_uuid, db)
+        await run_ai_analysis(scan_uuid, db, scan_ctx=scan_ctx)
 
         # Update last_scanned_at
         repo.last_scanned_at = datetime.now(UTC)

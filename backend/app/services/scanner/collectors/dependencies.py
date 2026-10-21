@@ -133,5 +133,95 @@ class DependenciesCollector(BaseCollector):
                 )
             )
 
+        # ── Dependency vulnerability alerts (Dependabot) ───────────────────
+        vulnerability_count = len(ctx.dependency_alerts)
+        result.metrics.append(
+            MetricData(_CAT, "open_vulnerability_alerts_count", float(vulnerability_count), "count")
+        )
+
+        if vulnerability_count > 0:
+            critical_alerts = [
+                a for a in ctx.dependency_alerts if a.get("severity", "").upper() == "CRITICAL"
+            ]
+            high_alerts = [
+                a for a in ctx.dependency_alerts if a.get("severity", "").upper() == "HIGH"
+            ]
+            medium_alerts = [
+                a for a in ctx.dependency_alerts if a.get("severity", "").upper() == "MEDIUM"
+            ]
+
+            result.metrics.append(
+                MetricData(
+                    _CAT, "critical_vulnerabilities_count", float(len(critical_alerts)), "count"
+                )
+            )
+            result.metrics.append(
+                MetricData(_CAT, "high_vulnerabilities_count", float(len(high_alerts)), "count")
+            )
+
+            if critical_alerts:
+                score -= min(40.0, 25.0 + (len(critical_alerts) - 1) * 5.0)
+                packages = ", ".join(sorted({a.get("package_name", "") for a in critical_alerts}))
+                identifiers = ", ".join(sorted({a.get("identifier", "") for a in critical_alerts}))
+                result.findings.append(
+                    FindingData(
+                        category=_CAT,
+                        severity="CRITICAL",
+                        title=f"{len(critical_alerts)} critical dependency vulnerability alert(s)",
+                        description=(
+                            f"Identified {len(critical_alerts)} critical severity dependency vulnerabilities "
+                            f"affecting packages: {packages} ({identifiers}). "
+                            "Known critical vulnerabilities present immediate exploitation risks. "
+                            "Update affected dependencies to patched versions immediately."
+                        ),
+                        fingerprint=_fp("critical_vulnerabilities", identifiers),
+                        evidence={
+                            "count": len(critical_alerts),
+                            "packages": packages,
+                            "identifiers": identifiers,
+                        },
+                    )
+                )
+
+            if high_alerts:
+                score -= min(25.0, 15.0 + (len(high_alerts) - 1) * 3.0)
+                packages = ", ".join(sorted({a.get("package_name", "") for a in high_alerts}))
+                identifiers = ", ".join(sorted({a.get("identifier", "") for a in high_alerts}))
+                result.findings.append(
+                    FindingData(
+                        category=_CAT,
+                        severity="HIGH",
+                        title=f"{len(high_alerts)} high severity dependency vulnerability alert(s)",
+                        description=(
+                            f"Identified {len(high_alerts)} high severity dependency vulnerabilities "
+                            f"affecting packages: {packages} ({identifiers}). "
+                            "Upgrade vulnerable libraries to secure releases."
+                        ),
+                        fingerprint=_fp("high_vulnerabilities", identifiers),
+                        evidence={
+                            "count": len(high_alerts),
+                            "packages": packages,
+                            "identifiers": identifiers,
+                        },
+                    )
+                )
+
+            if medium_alerts and not critical_alerts and not high_alerts:
+                score -= min(15.0, len(medium_alerts) * 3.0)
+                packages = ", ".join(sorted({a.get("package_name", "") for a in medium_alerts}))
+                result.findings.append(
+                    FindingData(
+                        category=_CAT,
+                        severity="MEDIUM",
+                        title=f"{len(medium_alerts)} medium severity dependency alert(s)",
+                        description=(
+                            f"Identified {len(medium_alerts)} medium severity dependency alerts "
+                            f"affecting packages: {packages}. Review and plan dependency updates."
+                        ),
+                        fingerprint=_fp("medium_vulnerabilities"),
+                        evidence={"count": len(medium_alerts), "packages": packages},
+                    )
+                )
+
         result.metrics.append(MetricData(_CAT, "dependencies_score", max(0.0, score), "score"))
         return result

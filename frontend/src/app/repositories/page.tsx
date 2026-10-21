@@ -318,11 +318,11 @@ function RepositoriesContent() {
                   </AnimatePresence>
 
                   {/* Actions */}
-                  <div className="mt-auto flex items-center gap-2">
+                  <div className="mt-auto flex items-center justify-between gap-1.5 pt-3 border-t border-gray-100/90 flex-wrap sm:flex-nowrap">
                     <Button
                       variant="primary"
                       size="sm"
-                      className="flex-1"
+                      className="flex-1 min-w-[76px] px-2.5 py-1.5 text-xs whitespace-nowrap"
                       loading={scanningId === repo.id}
                       onClick={() => triggerScan(repo.id)}
                     >
@@ -336,8 +336,8 @@ function RepositoriesContent() {
                         setScheduleModalOpen(true);
                       }}
                     />
-                    <Link href={`/repositories/${repo.id}`}>
-                      <Button variant="secondary" size="sm">
+                    <Link href={`/repositories/${repo.id}`} className="shrink-0">
+                      <Button variant="secondary" size="sm" className="px-2.5 py-1.5 text-xs whitespace-nowrap">
                         Details →
                       </Button>
                     </Link>

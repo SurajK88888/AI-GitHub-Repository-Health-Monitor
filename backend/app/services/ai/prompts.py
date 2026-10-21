@@ -10,6 +10,9 @@ and finding metadata are sent to the AI provider.
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
+from typing import Any
+
 PROMPT_VERSION = "1.0.0"
 
 # System instruction sent with every request
@@ -34,9 +37,17 @@ Return a JSON object with exactly these keys:
       "category": "<SECURITY|CODE_QUALITY|DEPENDENCIES|DOCUMENTATION|ISSUES|PULL_REQUESTS|ACTIVITY|CONFIGURATION>",
       "action_type": "<CREATE_SECURITY_POLICY|ENABLE_DEPENDABOT|ADD_CI_WORKFLOW|CREATE_README|CREATE_CONTRIBUTING|MANUAL_REVIEW>"
     }
+  ],
+  "tech_stack": [
+    {
+      "name": "<e.g. Next.js, React, FastAPI, PostgreSQL, Redis, Docker, GitHub Actions>",
+      "layer": "<client|backend|data|devops>",
+      "purpose": "<1 sentence concise explanation of its role in the project>",
+      "confidence": "<high|medium|low>"
+    }
   ]
 }
-Limit to a maximum of 5 key_risks and 5 recommendations.
+Limit to a maximum of 5 key_risks, 5 recommendations, and up to 10 tech_stack components across client, backend, data, and devops layers.
 """
 
 
@@ -46,8 +57,9 @@ def build_analysis_prompt(
     overall_score: float,
     score_band: str,
     previous_score: float | None,
-    category_scores: list[dict[str, object]],
-    top_findings: list[dict[str, object]],
+    category_scores: Sequence[Mapping[str, Any]],
+    top_findings: Sequence[Mapping[str, Any]],
+    architecture_cues: list[str] | None = None,
 ) -> str:
     """Build the user-facing prompt for a repository health analysis.
 
@@ -58,6 +70,7 @@ def build_analysis_prompt(
         previous_score: Previous overall score or None if first scan.
         category_scores: List of dicts with ``category``, ``raw_score``, ``weight``.
         top_findings: List of sanitized finding dicts (max 10, no raw content).
+        architecture_cues: Optional list of sanitized file/manifest cues for tech stack detection.
 
     Returns:
         Formatted prompt string ready to send to Gemini.
@@ -80,11 +93,17 @@ def build_analysis_prompt(
     if not finding_lines:
         finding_lines = "  (no open findings)"
 
+    cues_section = ""
+    if architecture_cues:
+        cues_text = "\n".join(f"  - {cue}" for cue in architecture_cues)
+        cues_section = f"\nDetected Architecture & Tech Stack Indicators:\n{cues_text}\n"
+
     return (
         f"Repository: {repo_full_name}\n"
         f"Overall Health Score: {overall_score:.2f} / 100 ({score_band})\n"
         f"{delta_str}"
         f"\nCategory breakdown:\n{cat_lines}\n"
         f"\nTop open findings (severity, category, title):\n{finding_lines}\n"
+        f"{cues_section}"
         f"\n{_SCHEMA_DESCRIPTION}"
     )

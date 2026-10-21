@@ -15,7 +15,8 @@ class AIAnalysisResultSchema(APIModel):
 
     summary: str | None = None
     key_risks: list[str] = []
-    recommendations: list[str] = []
+    recommendations: list[Any] = []
+    tech_stack: list[dict[str, Any]] = []
     raw: dict[str, Any] | None = None
 
 

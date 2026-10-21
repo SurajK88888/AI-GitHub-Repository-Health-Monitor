@@ -4,10 +4,11 @@ import { useState, useRef, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useFetch } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import type { Repository, Paginated } from "@/lib/types";
+import { NAV_ITEMS } from "./Sidebar";
 
 function HighlightMatch({ text, query }: { text: string; query: string }) {
   if (!query.trim()) return <span>{text}</span>;
@@ -26,9 +27,22 @@ function HighlightMatch({ text, query }: { text: string; query: string }) {
   );
 }
 
-export function Topbar() {
+export interface TopbarProps {
+  unreadCount?: number;
+  isMobile?: boolean;
+  onToggleMobileMenu?: () => void;
+  mobileMenuOpen?: boolean;
+}
+
+export function Topbar({
+  unreadCount = 0,
+  isMobile = false,
+  onToggleMobileMenu,
+  mobileMenuOpen = false,
+}: TopbarProps) {
   const { data: session } = useSession();
   const router = useRouter();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [isFocused, setIsFocused] = useState(false);
@@ -36,6 +50,7 @@ export function Topbar() {
 
   const ref = useRef<HTMLDivElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
 
   const { data: repoData } = useFetch<Paginated<Repository>>(
     session?.user ? "/repositories?limit=100" : null
@@ -55,10 +70,18 @@ export function Topbar() {
       if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
         setIsFocused(false);
       }
+      if (
+        mobileMenuRef.current &&
+        !mobileMenuRef.current.contains(e.target as Node) &&
+        mobileMenuOpen &&
+        onToggleMobileMenu
+      ) {
+        onToggleMobileMenu();
+      }
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
+  }, [mobileMenuOpen, onToggleMobileMenu]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown") {
@@ -100,10 +123,88 @@ export function Topbar() {
   const firstName = session?.user?.name?.split(" ")[0] ?? "User";
 
   return (
-    <header className="app-topbar bg-white border-b border-gray-100 flex items-center justify-between px-6 h-16 sticky top-0 z-30 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
-      {/* Search Input & Live Results Dropdown */}
-      <div ref={searchContainerRef} className="relative w-80">
-        <form onSubmit={handleSearchSubmit} className="relative">
+    <header className="app-topbar bg-white border-b border-gray-100 flex items-center justify-between px-4 sm:px-6 h-16 sticky top-0 z-30 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+      <div className="flex items-center gap-2.5 min-w-0">
+        {/* Mobile / Tablet Dropdown Menu Trigger */}
+        <div className="md:hidden relative" ref={mobileMenuRef}>
+          <button
+            type="button"
+            onClick={onToggleMobileMenu}
+            className={cn(
+              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-2xs",
+              mobileMenuOpen
+                ? "bg-[#181438] text-white border-brand-400 ring-2 ring-brand-500/20"
+                : "bg-white text-gray-800 border-gray-200 hover:bg-gray-50"
+            )}
+            title="Toggle Navigation Menu"
+            aria-label="Toggle navigation menu"
+          >
+            <span className="text-sm text-brand-600 leading-none">⬡</span>
+            <span className="font-bold text-xs">Menu</span>
+            <span className={cn("text-[9px] text-gray-400 transition-transform duration-200", mobileMenuOpen && "rotate-180")}>
+              ▼
+            </span>
+            {unreadCount > 0 && (
+              <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse ml-0.5" />
+            )}
+          </button>
+
+          {/* Mobile / Tablet Dropdown Menu */}
+          <AnimatePresence>
+            {mobileMenuOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 6, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 4, scale: 0.96 }}
+                transition={{ duration: 0.15 }}
+                className="absolute left-0 top-full mt-2 w-64 bg-[#181438] bg-gradient-to-b from-[#181438] to-[#20134b] text-white rounded-2xl shadow-2xl border border-white/10 z-50 overflow-hidden p-2 space-y-1"
+              >
+                <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-md bg-gradient-brand flex items-center justify-center text-xs text-white font-bold">
+                      ⬡
+                    </div>
+                    <span className="text-xs font-bold text-white">Health Monitor</span>
+                  </div>
+                  <span className="text-[10px] text-purple-300 font-medium">v1.0.0</span>
+                </div>
+
+                <div className="py-1 space-y-1">
+                  {NAV_ITEMS.map((item) => {
+                    const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => onToggleMobileMenu?.()}
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all",
+                          isActive
+                            ? "bg-white text-brand-900 shadow-sm"
+                            : "text-purple-200/80 hover:text-white hover:bg-white/10"
+                        )}
+                      >
+                        <span className={cn("text-sm", isActive ? "text-brand-600" : "text-purple-300")}>
+                          {item.icon}
+                        </span>
+                        <span className="flex-1">{item.label}</span>
+                        {item.href === "/notifications" && unreadCount > 0 && (
+                          <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-brand-500 text-white">
+                            {unreadCount > 99 ? "99+" : unreadCount}
+                          </span>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Search Input & Live Results Dropdown */}
+        <div ref={searchContainerRef} className="relative w-52 sm:w-80">
+          <form onSubmit={handleSearchSubmit} className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">
             🔍
           </span>
@@ -233,6 +334,7 @@ export function Topbar() {
           )}
         </AnimatePresence>
       </div>
+    </div>
 
       {/* Right controls */}
       <div className="flex items-center gap-3">

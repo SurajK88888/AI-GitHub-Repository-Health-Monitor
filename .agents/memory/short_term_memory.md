@@ -1,6 +1,163 @@
 # Short-Term Memory
 
 ## Current status
+- **Session 33 (2026-10-19): Fixed Type Variance Invariance Error in build_analysis_prompt.**
+  - **Issue Reported:** Type error `Argument list[dict[str, float | str]] is not assignable to parameter category_scores with type list[dict[str, object]] in function build_analysis_prompt @ analyzer.py:L527`.
+  - **Root Cause:** In Python's type system, mutable containers (`list` and `dict`) are strictly invariant. Even though `float | str` is a subtype of `object`, `dict[str, float | str]` is not assignable to `dict[str, object]`, nor is `list[...]`.
+  - **Fix Applied:**
+    1. In `backend/app/services/ai/prompts.py`, updated `category_scores` and `top_findings` parameter annotations to `Sequence[Mapping[str, Any]]` (covariant read-only interfaces).
+    2. In `backend/app/services/ai/analyzer.py`, explicitly typed `categories: list[dict[str, Any]]`.
+  - **Verification:**
+    - Ruff check clean (0 errors).
+    - Pytest `test_ai_service.py`: **36 / 36 passed**.
+- **Session 32 (2026-10-19): Universal AI Rate Limiter, Jittered Retry-After Handling & High-Throughput Model Configuration.**
+  - **Issue Reported:** Groq API requests hitting HTTP 429 `rate_limit_exceeded` during scans (e.g. 3 requests dispatched at the exact same second 11:46:02 AM).
+  - **Root Causes Fixed:**
+    1. ARQ background worker ran up to 10 jobs in parallel (`max_jobs = 10`), triggering simultaneous AI calls across concurrent repository scans.
+    2. Zero outbound rate limiting or concurrency control in `backend/app/services/ai/client.py`.
+    3. Thundering herd: when 429 occurred, static exponential backoff without jitter woke all failed requests up at the same instant, and ignored the `Retry-After` header sent by Groq.
+    4. `.env` was using `GROQ_MODEL=openai/gpt-oss-20b`, an experimental preview model with restrictive RPM quotas.
+  - **Fixes Applied (`backend/app/services/ai/client.py` & `.env`):**
+    1. Added `_extract_retry_after`: extracts delay from `retry-after` header, `retry-after-ms`, or regex error messages.
+    2. Added `_calculate_backoff`: computes `retry_after + random.uniform(0.5, 1.5)` (or base exponential `2 * (2**attempt) + random.uniform(0.5, 2.0)`), breaking synchronization.
+    3. Added global concurrency lock `_get_ai_lock()` and inter-request throttle `_throttle_ai_request()` (`1.5s` minimum interval) in `call_ai` so outbound calls never burst simultaneously.
+    4. Added automatic fallback to Google Gemini if Groq exhausts retries and a Gemini API key is configured.
+    6. Replaced unsafe direct `repo.language` access in `_extract_architecture_cues` (`backend/app/services/ai/analyzer.py`) with `getattr(repo, "language", None)` to eliminate `AttributeError` that blocked outbound AI execution.
+    7. Restarted Docker worker container (`docker compose restart worker`).
+  - **Verification:**
+    - Pytest `test_ai_service.py`: **36 / 36 passed** (100% pass rate).
+    - Live worker logs: zero attribute errors on scan completion.
+    - Preserved zero disruption to unrelated code and maintained failure invariants.
+- **Session 31 (2026-10-19): Synchronized Frontend Calculation Details Modal with Upgraded Backend Engine (Improvement 6).**
+  - **Feature:**
+    1. **Synchronized Modal Info Text (`frontend/src/app/repositories/[id]/page.tsx`):**
+       - Updated all category definitions in `CATEGORY_EXPLANATIONS` to match the real backend scoring rules, deduction weights, severities, and safety caps implemented in Improvements 1–5:
+         - **Security**: Added in-content credential pattern scanning (private keys, AWS `AKIA...`, GitHub `ghp_...`, Slack `xox...`) alongside committed key files.
+         - **Code Quality**: Added failed latest workflow run detection (-20 pts, HIGH) and low execution pass rate (<50%, -10 pts, MEDIUM) alongside workflow presence.
+         - **Dependencies**: Added Dependabot CVE/GHSA vulnerability alert ingestion (Critical: -25 to -40 pts; High: -15 to -25 pts; Med/Low: -5 to -15 pts).
+         - **Issues**: Added scale-aware capacity thresholds (`max(50, active_contributors * 15)`), differentiating unmaintained stale backlogs from active velocity.
+         - **Pull Requests**: Added scale-aware PR thresholds (`max(20, active_contributors * 5)`), evaluating stale non-draft PRs and review throughput.
+         - **Configuration**: Added default branch protection checks, required PR review enforcement (-5 pts), and CI status check enforcement.
+    2. **Verification:**
+       - TypeScript check `tsc --noEmit` passed with 0 errors.
+       - Next.js production build (`next build`) succeeded with 0 errors (all 12 static/dynamic routes compiled).
+       - Zero unrelated files modified.
+- **Session 30 (2026-10-19): Branch Protection & Code Review Enforcement Evaluation (Improvement 5).**
+  - **Feature:**
+    1. **Branch Protection Ingestion (`github_fetcher.py` & `ScanContext`):**
+       - Added `branch_protection` field to `ScanContext`.
+       - Fetched `/repos/{owner}/{repo}/branches/{default_branch}/protection` in `github_fetcher.py` with fail-safe error handling for 404 (unprotected) or permission restrictions.
+    2. **Branch Protection & Review Enforcement Evaluation (`ConfigurationCollector`):**
+       - Emitted new metrics: `has_branch_protection` (bool), `requires_pull_request_reviews` (bool), `required_reviewers_count` (count), `enforces_status_checks` (bool).
+       - Evaluated default branch protections:
+         - Missing branch protection on non-empty repo: flags `LOW` finding (*"No branch protection on default branch '{branch}'"*), deducts `-10.0 pts`.
+         - Protected branch without required PR reviews: flags `LOW` finding (*"Branch protection on '{branch}' does not enforce PR reviews"*), deducts `-5.0 pts`.
+         - Protected branch without required CI status checks: flags `INFORMATIONAL` finding (*"Branch protection on '{branch}' does not enforce CI status checks"*).
+    3. **Backward Compatibility & Safety:**
+       - All existing collector tests remain passing.
+       - Added 4 new unit tests in `backend/tests/test_collectors.py` verifying full protection clean state, missing reviews deduction, missing status checks informational finding, and missing branch protection deduction on code repos.
+  - **Verification:**
+    - Full test suite: **257 / 257 passed** (61/61 collector tests passed), **70.67% test coverage** ($\ge 50\%$ required).
+    - Ruff check: clean (0 errors). Zero unrelated code modified.
+- **Session 29 (2026-10-18): Scale-Aware Issue & PR Backlog Health Evaluation (Improvement 4).**
+  - **Feature:**
+    1. **Scale-Aware Issue Backlog Evaluation (`IssuesCollector`):**
+       - Computed `active_contributors` from recent commits in the 30-day window (`ctx.recent_commits`).
+       - Replaced the static 50-issue threshold with a dynamic scale-aware threshold: `backlog_threshold = max(50, active_contributors * 15)`. Active multi-contributor teams with high issue volume are no longer penalized if issues are actively worked on.
+       - Emitted new metric: `stale_issue_ratio` (percentage of open issues unupdated for 90+ days).
+       - Differentiated unmaintained backlogs (`stale_ratio >= 40%` or `stale_count >= 10`, severity `MEDIUM`, -20 pts deduction) from high-volume actively maintained backlogs (`stale_ratio < 40%`, severity `LOW`, -10 pts deduction).
+    2. **Scale-Aware PR Backlog Evaluation (`PullRequestsCollector`):**
+       - Scaled the PR backlog threshold dynamically based on team capacity: `backlog_threshold = max(20, active_contributors * 5)`.
+       - Emitted new metric: `stale_pr_ratio` (percentage of open non-draft PRs unupdated for 30+ days).
+       - Differentiated review bottleneck backlogs (`stale_ratio >= 30%` or `stale_count >= 4`, severity `MEDIUM`, -15 pts deduction) from high-volume active velocity PR flows (`stale_ratio < 30%`, severity `LOW`, -5 pts deduction).
+    3. **Backward Compatibility & Safety:**
+       - All existing collector tests and assertions remain intact.
+       - Added 8 dedicated unit tests in `backend/tests/test_collectors.py` verifying ratio calculations, team scale tolerance, and backlog severity assignment.
+  - **Verification:**
+    - Full test suite: **253 / 253 passed** (57/57 collector tests passed), **70.78% test coverage** ($\ge 50\%$ required).
+    - Ruff check: clean (0 errors). Zero unrelated code modified.
+- **Session 28 (2026-10-18): Auto-Scan Schedule Info Popover Smart Placement & Portal Stacking Context Fix.**
+  - **Feature:**
+    1. **Fixed Message Box Appearing Behind Sibling Cards (Stacking Context Fix):**
+       - Root cause: Each repository card in the grid is wrapped inside a Framer Motion card (`motion.div variants={item}`) with `relative` and `transform`, creating independent CSS stacking contexts. Sibling cards later in the DOM order (e.g., Card 2 "Indian-Mathematicians") were painted on top of the popover opened from Card 1 ("Hello-galaxy").
+       - Solution: Rendered the floating info popover via React Portal (`createPortal(..., document.body)`) with fixed viewport coordinates (`coords`) and `zIndex: 9999`. By mounting directly into `document.body` in the root stacking context, the popover is guaranteed to appear in front of all repository cards and surrounding elements.
+       - Updated `handleClickOutside` with `popoverRef` to preserve click actions inside the portal.
+    2. **Fixed Sidebar Overlap on Repository Cards (Screenshot 1):**
+       - Replaced hardcoded `sm:right-0` with dynamic horizontal positioning (`placement.horizontal`). If aligning right would project into the sidebar zone (`rect.right - 288 < 250px`), it aligns left, keeping the popover cleanly positioned over the repository card.
+    3. **Fixed Top Viewport Cutoff on Repository Detail Header (Screenshot 2):**
+       - Added dynamic vertical positioning (`placement.vertical`). If available space above the button is insufficient (`spaceAbove < 230px`), the popover automatically flips to open downwards (`top: rect.bottom + 8`).
+    4. **Live Recalculation & Smooth Motion:**
+       - Coordinates recalculate immediately on button hover, info button click, window scroll, and window resize.
+       - Tailored entry/exit animations (`y: 6` / `y: -6`) to match active vertical orientation for smooth, natural appearance.
+       - Added `max-w-[calc(100vw-2rem)]` safeguard against horizontal clipping on mobile devices.
+  - **Verification:**
+    - TypeScript compiler check `npx tsc --noEmit` passed with 0 errors (exit code 0).
+    - Preserved all existing schedule functionality, callbacks, and layout integrity without touching unrelated code.
+- **Session 27 (2026-10-18): Minimizable & Draggable Resizable Sidebar, Small-Screen / Tablet Dropdown Menu, and Size-Responsive Button & Typography Measurements.**
+  - **Feature:**
+    1. **Minimizable & Draggable Resizable Sidebar (Requirement 1):**
+       - In `frontend/src/components/layout/Sidebar.tsx`, added a collapse/expand toggle button (`«` / `»`) allowing the user to minimize the sidebar into a 68px icon-only rail with centered icons and hover tooltips.
+       - Implemented an interactive right-edge drag handle (`cursor-col-resize`) with live pointer tracking and strictly enforced limits: minimum width `190px`, maximum width `360px`.
+       - Fixed drag boundary: removed accidental auto-collapse on drag, enforcing a firm stop at `190px` with zero flickering or forced decrease.
+       - Fixed header layout: in collapsed mode, brand logo and expand button `»` are stacked vertically in separate rows, permanently preventing button overlap or logo covering.
+       - Enhanced transition smoothness: set 350ms easing transition across width, content margins, and text label opacity/max-width for an elegant, gradual minimize animation.
+       - Persisted sidebar width and collapsed state in `localStorage` (`gh_health_sidebar_width`, `gh_health_sidebar_collapsed`).
+    2. **Small-Screen / Tablet Navigation Dropdown Menu (Requirement 2):**
+       - In `frontend/src/components/layout/Topbar.tsx`, added a responsive `⬡ Menu ▼` trigger button on screens `< 768px` (tablets & mobile).
+       - Clicking the trigger smoothly reveals a full-featured navigation dropdown menu with all 6 destinations, active indicator, and unread notification badge, closing automatically on navigation or outside click.
+       - In `frontend/src/app/globals.css`, added `@media (max-width: 767px)` rules hiding fixed desktop sidebar and resetting content margins to 0.
+    3. **Size-Responsive Button & Text Measurements (Requirement 3):**
+       - In `frontend/src/components/layout/Sidebar.tsx`, dynamically scaled button padding, icon size, typography, and notification badges based on active width (`isCompact < 220px`).
+       - In `frontend/src/components/scheduler/ScheduleButtonWithInfo.tsx`, streamlined compact mode inside repository cards to display `⏱️ Daily` / `⏱️ Weekly` / `⏱️ Monthly` (saving ~40px) with `text-[11.5px]` font and balanced padding.
+       - In `frontend/src/app/repositories/page.tsx`, updated the card action bar (`Scan Now`, `Auto-scan`, `Details →`) with balanced measurements (`px-2.5 py-1.5 text-xs whitespace-nowrap`, `min-w-[76px]`), eliminating awkward wrapping and overflow across all card widths.
+  - **Verification:**
+    - TypeScript compiler check `npx tsc --noEmit` passed with 0 errors (exit code 0).
+    - Zero unrelated code modified.
+- **Session 26 (2026-10-18): AI Repository Scan & Architecture Mapping for Interactive Tech Stack Visualizer.**
+  - **Feature:**
+    1. **Root Cause Analysis:** Previously, when a healthy repository (like `AI-GitHub-Repository-Health-Monitor`) had 0 dependency/quality findings, the client-side text heuristic couldn't detect frontend/backend/database components because it lacked access to `package.json`, `pyproject.toml`, or backend scan context files.
+    2. **AI Prompt & Architecture Cue Ingestion:**
+       - Enhanced `backend/app/services/scanner/github_fetcher.py` to fetch common manifest files (`package.json`, `frontend/package.json`, `pyproject.toml`, `backend/pyproject.toml`, `requirements.txt`, `Dockerfile`, `go.mod`, etc.) into `ScanContext.file_contents`.
+       - Updated `backend/app/services/ai/prompts.py` to include `tech_stack` specification in `_SCHEMA_DESCRIPTION` (name, layer, purpose, confidence) and added `architecture_cues` parameter to `build_analysis_prompt`.
+       - Built `_extract_architecture_cues` in `backend/app/services/ai/analyzer.py` extracting repository language, frameworks (Next.js, React, Tailwind, FastAPI, SQLAlchemy, Redis, Docker, GitHub Actions) and fallback nodes.
+       - Built `_parse_tech_stack` in `backend/app/services/ai/analyzer.py` normalizing layers to `client`, `backend`, `data`, `devops`, bounds-checking fields, and persisting `tech_stack` inside `analysis.result`.
+       - Updated `backend/app/workers/jobs/scan_job.py` to pass `scan_ctx=scan_ctx` directly to `run_ai_analysis`.
+       - Updated Pydantic schemas in `backend/app/schemas/ai.py` to include `tech_stack: list[dict[str, Any]] = []`.
+    3. **Frontend Integration & Visualizer Enhancement:**
+       - In `frontend/src/lib/types.ts`, added `tech_stack` definition to `AIAnalysis["result"]`.
+       - In `frontend/src/app/repositories/[id]/page.tsx`, passed `aiAnalysis={aiAnalysis}` to `<TechStackVisualizer />`.
+       - In `frontend/src/components/repository/TechStackVisualizer.tsx`:
+         - Made AI-detected `aiAnalysis.result.tech_stack` the primary data source, mapping nodes with rich technology visuals, live connection health status, and confidence levels.
+         - Merged heuristic nodes to prevent any detected component from being lost.
+         - Added an `✨ AI Architecture Scan` badge in the header whenever AI analysis powers the visualizer.
+         - Preserved empty repository safety guard (`if (hasNoCode) return null`).
+  - **Verification:**
+    - Full backend test suite: **245 / 245 passed** (100% pass rate, **75.20% test coverage**, $\ge 50\%$ required).
+    - Next.js production build: **Passed with 0 compilation or lint errors**.
+    - Docker containers (`backend`, `worker`, `frontend`): restarted and verified running healthy.
+- **Session 25 (2026-10-18): Auto-Scan Scheduler UTC & Local Time Info Tags, Local Time Border Highlight (+2px), and UTC/Local Clock View Toggle.**
+  - **Feature:**
+    1. **Execution Time (UTC) Info Tag:** In `frontend/src/components/scheduler/ScheduleScanModal.tsx`, added an interactive `(ℹ)` info button next to `Execution Time (UTC)` with a floating popover detailing Coordinated Universal Time (UTC) standard, why background workers run on UTC, and how it eliminates Daylight Saving Time (DST) shifts. Includes outside-click dismissal and clean hover states.
+    2. **Local Time Conversion Info Tag:** In `frontend/src/components/scheduler/TimeSelectorClock.tsx`, added an interactive `(ℹ)` info button next to `📍 Local Time:` explaining how UTC execution time converts to the user's browser timezone (`Intl.DateTimeFormat().resolvedOptions().timeZone`), including real-time offset notation (`getTimezoneOffsetString()`).
+    3. **Local Time Area Highlight & Font Increase (+2px):** Wrapped the Local Time title section in a bordered container with a soft indigo/brand gradient highlight (`border border-indigo-200/90 bg-gradient-to-r from-indigo-50/70 via-purple-50/30 to-white shadow-2xs`). Increased the font size by 2px from `text-[11px]` to `text-[13px] font-extrabold text-indigo-950 font-mono` with an enhanced badge container.
+    4. **Clock UTC vs. Local Time Toggle:** Added a segmented toggle button (`[ 🌐 UTC ] [ 📍 Local ]`) directly on the clock interface (`timeViewMode`). When set to `Local`, the clock dial, rotating hands, AM/PM periods, steppers (`-1h`, `+1h`, `-15m`, `+15m`), and hour/minute selector grids reflect local time, converting bidirectionally to/from UTC (`convertLocalToUtc`) so schedules persist consistently in UTC without affecting backend execution.
+    5. **12h / 24h Format Toggle Button on Complete Right Side:** Added a segmented toggle button (`[ 12h ] [ 24h ]`) on the complete right side of the interactive time bar (`ml-auto`). When `12h` is selected, the digital clock displays 12-hour format with an interactive `AM`/`PM` badge, the hour sub-mode selector displays 12h notation, and the hour selection grid switches to 12-hour clickable buttons tailored to the current period (`12 AM/PM` to `11 AM/PM`).
+    6. **Custom Themed Repository Dropdown (7 Items Visible):** In `frontend/src/components/scheduler/ScheduleScanModal.tsx`, replaced native HTML `<select>` with a custom branded dropdown popup styled to match the app theme (`bg-brand-50/80`, `border-brand-200`, `shadow-xl`, rotating chevron). Fixed viewport height to `max-h-[252px]` ($7 \times 36\text{px}$) to display exactly 7 repositories at a time with smooth scrolling for the rest, click-outside dismissal, and auto-scrolling to the currently active repository upon opening.
+  - **Verification:**
+    - TypeScript compiler check `npx tsc --noEmit` exited cleanly with 0 errors.
+    - Zero unrelated code modified.
+- **Session 24 (2026-10-18): Real CVE / Vulnerability Alert Ingestion in Dependencies Collector (Improvement 3).**
+  - **Feature:**
+    1. **Dependabot Alerts Ingestion:** Enhanced `github_fetcher.py` and `ScanContext` (`context.py`) with `dependency_alerts` field fetching open Dependabot alerts (`/repos/{owner}/{repo}/dependabot/alerts`) with fail-safe error handling.
+    2. **Vulnerability Evaluation & Severity Deductions:** Enhanced `DependenciesCollector` (`collectors/dependencies.py`) to evaluate active security vulnerabilities:
+       - Flags a `CRITICAL` finding and deducts `25.0` to `40.0 pts` if open CRITICAL alerts exist (affecting packages, CVE/GHSA IDs, automatically capped at $\le 30.0$ by scoring engine).
+       - Flags a `HIGH` finding and deducts `15.0` to `25.0 pts` if open HIGH alerts exist (automatically capped at $\le 60.0$).
+       - Flags a `MEDIUM` finding and deducts up to `15.0 pts` if only medium/low alerts exist.
+       - Records `open_vulnerability_alerts_count`, `critical_vulnerabilities_count`, and `high_vulnerabilities_count` metrics.
+    3. **Resilience:** Clean repos or private repos where alerts API is disabled or inaccessible default gracefully with 0 deductions.
+  - **Verification:**
+    - Full test suite: **240 / 240 passed** (9/9 dependencies collector tests), **69.97% test coverage**.
+    - Ruff lint and formatting clean. Zero unrelated files changed.
 - **Session 23 (2026-10-18): CI Workflow Execution Status & Pass Rate in Code Quality Collector (Improvement 2).**
   - **Feature:**
     1. **Workflow Runs Ingestion:** Enhanced `github_fetcher.py` and `ScanContext` (`context.py`) with `recent_ci_runs` field fetching the latest 10 GitHub Actions workflow runs (`/repos/{owner}/{repo}/actions/runs`) with fail-safe error handling.

@@ -41,12 +41,14 @@ class PullRequestsCollector(BaseCollector):
         non_draft = [pr for pr in ctx.open_pull_requests if not pr.draft]
         stale_prs = [pr for pr in non_draft if pr.updated_at < stale_threshold]
         stale_count = len(stale_prs)
+        stale_ratio = (stale_count / len(non_draft) * 100.0) if non_draft else 0.0
 
         result.metrics.append(MetricData(_CAT, "open_pr_count", float(open_count), "count"))
         result.metrics.append(MetricData(_CAT, "stale_pr_count", float(stale_count), "count"))
         result.metrics.append(
             MetricData(_CAT, "open_non_draft_pr_count", float(len(non_draft)), "count")
         )
+        result.metrics.append(MetricData(_CAT, "stale_pr_ratio", round(stale_ratio, 2), "percent"))
 
         # ── Stale non-draft PRs ───────────────────────────────────────────
         if stale_count > 0:
@@ -67,20 +69,45 @@ class PullRequestsCollector(BaseCollector):
                 )
             )
 
-        # ── Large PR backlog ──────────────────────────────────────────────
-        if open_count >= 20:
-            score -= 15.0
+        # ── High open count (scale-aware) ─────────────────────────────────
+        active_contributors = len({c.author_login for c in ctx.recent_commits if c.author_login})
+        backlog_threshold = max(20, active_contributors * 5)
+
+        if open_count >= backlog_threshold:
+            if stale_ratio >= 30.0 or stale_count >= 4:
+                score -= 15.0
+                severity = "MEDIUM"
+                title = (
+                    f"Large unmaintained open PR backlog "
+                    f"({open_count} PRs, {round(stale_ratio, 1)}% stale)"
+                )
+                description = (
+                    f"The repository has {open_count} open pull requests, with {stale_count} non-draft PRs "
+                    f"unreviewed for {_STALE_DAYS}+ days. This points to a code review bottleneck."
+                )
+            else:
+                score -= 5.0
+                severity = "LOW"
+                title = f"High open PR volume ({open_count} PRs)"
+                description = (
+                    f"The repository has {open_count} open pull requests. Although PRs are actively moving, "
+                    "high in-flight volume can increase merge conflict risks."
+                )
+
             result.findings.append(
                 FindingData(
                     category=_CAT,
-                    severity="MEDIUM",
-                    title=f"Large open PR backlog ({open_count} PRs)",
-                    description=(
-                        f"The repository has {open_count} open pull requests. "
-                        "A large backlog may indicate review capacity problems."
-                    ),
+                    severity=severity,
+                    title=title,
+                    description=description,
                     fingerprint=_fp("high_pr_backlog"),
-                    evidence={"open_count": open_count},
+                    evidence={
+                        "open_count": open_count,
+                        "stale_count": stale_count,
+                        "stale_ratio": round(stale_ratio, 2),
+                        "backlog_threshold": backlog_threshold,
+                        "active_contributors": active_contributors,
+                    },
                 )
             )
 
