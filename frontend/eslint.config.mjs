@@ -1,10 +1,17 @@
 import js from "@eslint/js";
+import globals from "globals";
 import nextPlugin from "@next/eslint-plugin-next";
+import reactHooksPlugin from "eslint-plugin-react-hooks";
 import tsParser from "@typescript-eslint/parser";
 import tsPlugin from "@typescript-eslint/eslint-plugin";
 
 const config = [
   js.configs.recommended,
+  {
+    plugins: {
+      "@next/next": nextPlugin,
+    },
+  },
   {
     files: ["**/*.{ts,tsx}"],
     languageOptions: {
@@ -16,15 +23,23 @@ const config = [
           jsx: true,
         },
       },
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+      },
     },
     plugins: {
       "@typescript-eslint": tsPlugin,
       "@next/next": nextPlugin,
+      "react-hooks": reactHooksPlugin,
     },
     rules: {
       ...tsPlugin.configs.recommended.rules,
       ...nextPlugin.configs.recommended.rules,
       ...nextPlugin.configs["core-web-vitals"].rules,
+      ...reactHooksPlugin.configs.recommended.rules,
+      "no-undef": "off", // TypeScript compiler (tsc) already checks undefined variables and DOM types
+      "no-empty": ["error", { allowEmptyCatch: true }],
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/no-unused-vars": [
         "warn",
