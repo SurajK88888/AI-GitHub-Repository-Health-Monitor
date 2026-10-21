@@ -80,7 +80,7 @@ def _extract_retry_after(response: httpx.Response | None) -> float | None:
                 except (ValueError, TypeError):
                     pass
     except Exception:
-        pass
+        logger.debug("Failed to parse retry headers", exc_info=True)
     try:
         body = response.json()
         error_msg = body.get("error", {}).get("message", "")
@@ -88,7 +88,7 @@ def _extract_retry_after(response: httpx.Response | None) -> float | None:
         if match:
             return float(match.group(1))
     except Exception:
-        pass
+        logger.debug("Failed to parse retry delay from response body", exc_info=True)
     return None
 
 
@@ -100,10 +100,10 @@ def _calculate_backoff(attempt: int, response: httpx.Response | None = None) -> 
     """
     retry_after = _extract_retry_after(response)
     if retry_after is not None and retry_after > 0:
-        return retry_after + random.uniform(0.5, 1.5)
+        return retry_after + random.uniform(0.5, 1.5)  # noqa: S311
 
     base = 3.0 * (2**attempt)
-    jitter = random.uniform(0.5, 2.0)
+    jitter = random.uniform(0.5, 2.0)  # noqa: S311
     return float(base + jitter)
 
 

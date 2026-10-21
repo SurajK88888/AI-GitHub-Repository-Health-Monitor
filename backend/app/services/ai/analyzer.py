@@ -283,7 +283,11 @@ def _extract_architecture_cues(
                             f"Frontend libraries ({path_k}): {', '.join(found_client_libs)}"
                         )
                 except Exception:
-                    pass
+                    logger.debug(
+                        "Could not parse frontend dependency file for cue extraction: %s",
+                        path_k,
+                        exc_info=True,
+                    )
 
             # Deep inspect pyproject.toml / requirements.txt
             if (
