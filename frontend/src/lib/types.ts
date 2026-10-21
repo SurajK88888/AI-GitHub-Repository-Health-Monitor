@@ -208,6 +208,12 @@ export interface AIAnalysis {
       priority: string;
       category: string;
     }>;
+    tech_stack?: Array<{
+      name: string;
+      layer: "client" | "backend" | "data" | "devops";
+      purpose: string;
+      confidence?: "high" | "medium" | "low";
+    }>;
   } | null;
   created_at: string;
   completed_at?: string | null;

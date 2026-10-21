@@ -41,9 +41,13 @@ class IssuesCollector(BaseCollector):
         open_count = len(ctx.open_issues)
         stale_issues = [i for i in ctx.open_issues if i.updated_at < stale_threshold]
         stale_count = len(stale_issues)
+        stale_ratio = (stale_count / open_count * 100.0) if open_count > 0 else 0.0
 
         result.metrics.append(MetricData(_CAT, "open_issue_count", float(open_count), "count"))
         result.metrics.append(MetricData(_CAT, "stale_issue_count", float(stale_count), "count"))
+        result.metrics.append(
+            MetricData(_CAT, "stale_issue_ratio", round(stale_ratio, 2), "percent")
+        )
 
         # ── Stale issues ──────────────────────────────────────────────────
         if stale_count > 0:
@@ -64,20 +68,46 @@ class IssuesCollector(BaseCollector):
                 )
             )
 
-        # ── High open count ───────────────────────────────────────────────
-        if open_count >= 50:
-            score -= 20.0
+        # ── High open count (scale-aware) ─────────────────────────────────
+        active_contributors = len({c.author_login for c in ctx.recent_commits if c.author_login})
+        backlog_threshold = max(50, active_contributors * 15)
+
+        if open_count >= backlog_threshold:
+            if stale_ratio >= 40.0 or stale_count >= 10:
+                score -= 20.0
+                severity = "MEDIUM"
+                title = (
+                    f"Large unmaintained open issue backlog "
+                    f"({open_count} issues, {round(stale_ratio, 1)}% stale)"
+                )
+                description = (
+                    f"The repository has {open_count} open issues, of which {stale_count} "
+                    f"({round(stale_ratio, 1)}%) have had no activity for {_STALE_DAYS}+ days. "
+                    "A large stale backlog suggests triage and maintenance bottlenecks."
+                )
+            else:
+                score -= 10.0
+                severity = "LOW"
+                title = f"Large active open issue backlog ({open_count} issues)"
+                description = (
+                    f"The repository has {open_count} open issues. While issues are actively "
+                    "worked on, a large open backlog can increase triage overhead."
+                )
+
             result.findings.append(
                 FindingData(
                     category=_CAT,
-                    severity="MEDIUM",
-                    title=f"Large open issue backlog ({open_count} issues)",
-                    description=(
-                        f"The repository has {open_count} open issues. "
-                        "A large backlog may indicate insufficient maintenance bandwidth."
-                    ),
+                    severity=severity,
+                    title=title,
+                    description=description,
                     fingerprint=_fp("high_issue_backlog"),
-                    evidence={"open_count": open_count},
+                    evidence={
+                        "open_count": open_count,
+                        "stale_count": stale_count,
+                        "stale_ratio": round(stale_ratio, 2),
+                        "backlog_threshold": backlog_threshold,
+                        "active_contributors": active_contributors,
+                    },
                 )
             )
 

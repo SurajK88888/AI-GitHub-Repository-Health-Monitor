@@ -88,6 +88,12 @@ class ScanContext:
     # ── CI / Actions execution status (optional, empty if not accessible) ────
     recent_ci_runs: list[dict[str, Any]] = field(default_factory=list)
 
+    # ── Dependency vulnerability alerts (open Dependabot alerts) ─────────────
+    dependency_alerts: list[dict[str, Any]] = field(default_factory=list)
+
+    # ── Branch protection & review rules (optional, None if not set/accessible)
+    branch_protection: dict[str, Any] | None = None
+
     def has_file(self, *names: str) -> bool:
         """Return True if any of *names* exist anywhere in the tree."""
         lowered = [n.lower() for n in names]

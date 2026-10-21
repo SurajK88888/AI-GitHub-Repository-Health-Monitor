@@ -45,6 +45,8 @@ def _ctx(**overrides: object) -> ScanContext:
         "open_issues": [],
         "open_pull_requests": [],
         "recent_ci_runs": [],
+        "dependency_alerts": [],
+        "branch_protection": None,
     }
     defaults.update(overrides)
     return ScanContext(**defaults)  # type: ignore[arg-type]
@@ -337,6 +339,62 @@ class TestDependenciesCollector:
         count_metric = next(m for m in result.metrics if m.metric_name == "manifest_count")
         assert count_metric.metric_value >= 2.0
 
+    def test_critical_vulnerability_alert_produces_critical_finding_and_deduction(self) -> None:
+        ctx = _ctx(
+            file_paths=["package.json", "package-lock.json"],
+            dependency_alerts=[
+                {
+                    "number": 1,
+                    "package_name": "tar",
+                    "severity": "CRITICAL",
+                    "identifier": "CVE-2021-37701",
+                    "summary": "Arbitrary File Overwrite in tar",
+                }
+            ],
+        )
+        result = self.collector.collect(ctx)
+        assert any(
+            "critical dependency vulnerability alert" in f.title and f.severity == "CRITICAL"
+            for f in result.findings
+        )
+        score_metric = next(m for m in result.metrics if m.metric_name == "dependencies_score")
+        assert score_metric.metric_value == 75.0  # 100 - 25
+
+    def test_high_vulnerability_alert_produces_high_finding(self) -> None:
+        ctx = _ctx(
+            file_paths=["package.json", "package-lock.json"],
+            dependency_alerts=[
+                {
+                    "number": 2,
+                    "package_name": "lodash",
+                    "severity": "HIGH",
+                    "identifier": "CVE-2020-8203",
+                    "summary": "Prototype Pollution in lodash",
+                }
+            ],
+        )
+        result = self.collector.collect(ctx)
+        assert any(
+            "high severity dependency vulnerability alert" in f.title and f.severity == "HIGH"
+            for f in result.findings
+        )
+        score_metric = next(m for m in result.metrics if m.metric_name == "dependencies_score")
+        assert score_metric.metric_value == 85.0  # 100 - 15
+
+    def test_clean_dependencies_no_vulnerability_findings(self) -> None:
+        ctx = _ctx(
+            file_paths=["package.json", "package-lock.json"],
+            dependency_alerts=[],
+        )
+        result = self.collector.collect(ctx)
+        assert not any(f.severity in ("CRITICAL", "HIGH") for f in result.findings)
+        alert_metric = next(
+            m for m in result.metrics if m.metric_name == "open_vulnerability_alerts_count"
+        )
+        assert alert_metric.metric_value == 0.0
+        score_metric = next(m for m in result.metrics if m.metric_name == "dependencies_score")
+        assert score_metric.metric_value == 100.0
+
 
 # ═════════════════════════════════════════════════════════════════════════════
 # Issues collector
@@ -390,6 +448,96 @@ class TestIssuesCollector:
         metric = next(m for m in result.metrics if m.metric_name == "open_issue_count")
         assert metric.metric_value == 5.0
 
+    def test_stale_issue_ratio_metric(self) -> None:
+        now = datetime.now(UTC)
+        issues = [
+            IssueSummary(
+                number=1,
+                title="Stale 1",
+                created_at=now - timedelta(days=120),
+                updated_at=now - timedelta(days=100),
+            ),
+            IssueSummary(
+                number=2,
+                title="Active 1",
+                created_at=now - timedelta(days=10),
+                updated_at=now - timedelta(days=2),
+            ),
+        ]
+        ctx = _ctx(open_issues=issues)
+        result = self.collector.collect(ctx)
+        ratio_metric = next(m for m in result.metrics if m.metric_name == "stale_issue_ratio")
+        assert ratio_metric.metric_value == 50.0
+
+    def test_scaled_issue_backlog_active_team_not_penalized(self) -> None:
+        now = datetime.now(UTC)
+        # 5 active contributors -> threshold is max(50, 5 * 15) = 75
+        commits = [
+            CommitSummary(
+                sha=f"c{i}",
+                message=f"feat {i}",
+                committed_at=now - timedelta(days=i),
+                author_login=f"dev{i}",
+            )
+            for i in range(5)
+        ]
+        issues = [
+            IssueSummary(
+                number=i,
+                title=f"Active issue {i}",
+                created_at=now - timedelta(days=5),
+                updated_at=now - timedelta(days=1),
+            )
+            for i in range(60)
+        ]
+        ctx = _ctx(
+            file_paths=[".github/issue_template.md"],
+            recent_commits=commits,
+            open_issues=issues,
+        )
+        result = self.collector.collect(ctx)
+        assert not any("backlog" in f.title.lower() for f in result.findings)
+        score_metric = next(m for m in result.metrics if m.metric_name == "issues_score")
+        assert score_metric.metric_value == 100.0
+
+    def test_unmaintained_large_issue_backlog_triggers_medium(self) -> None:
+        now = datetime.now(UTC)
+        # 1 contributor -> threshold is 50. 55 issues, 25 stale (>40% stale)
+        issues = [
+            IssueSummary(
+                number=i,
+                title=f"Issue {i}",
+                created_at=now - timedelta(days=150),
+                updated_at=now - timedelta(days=100 if i < 25 else 5),
+            )
+            for i in range(55)
+        ]
+        ctx = _ctx(file_paths=[".github/issue_template.md"], open_issues=issues)
+        result = self.collector.collect(ctx)
+        backlog_finding = next(f for f in result.findings if "backlog" in f.title.lower())
+        assert backlog_finding.severity == "MEDIUM"
+        assert "unmaintained" in backlog_finding.title.lower()
+
+    def test_active_large_issue_backlog_triggers_low(self) -> None:
+        now = datetime.now(UTC)
+        # 1 contributor -> threshold 50. 55 issues, 0 stale
+        issues = [
+            IssueSummary(
+                number=i,
+                title=f"Issue {i}",
+                created_at=now - timedelta(days=10),
+                updated_at=now - timedelta(days=2),
+            )
+            for i in range(55)
+        ]
+        ctx = _ctx(file_paths=[".github/issue_template.md"], open_issues=issues)
+        result = self.collector.collect(ctx)
+        backlog_finding = next(f for f in result.findings if "backlog" in f.title.lower())
+        assert backlog_finding.severity == "LOW"
+        assert "active" in backlog_finding.title.lower()
+        score_metric = next(m for m in result.metrics if m.metric_name == "issues_score")
+        assert score_metric.metric_value == 90.0  # 100 - 10
+
 
 # ═════════════════════════════════════════════════════════════════════════════
 # Pull Requests collector
@@ -441,6 +589,107 @@ class TestPullRequestsCollector:
         result = self.collector.collect(ctx)
         metric = next(m for m in result.metrics if m.metric_name == "open_pr_count")
         assert metric.metric_value == 3.0
+
+    def test_stale_pr_ratio_metric(self) -> None:
+        now = datetime.now(UTC)
+        prs = [
+            PullRequestSummary(
+                number=1,
+                title="Stale PR",
+                created_at=now - timedelta(days=60),
+                updated_at=now - timedelta(days=35),
+                draft=False,
+            ),
+            PullRequestSummary(
+                number=2,
+                title="Active PR",
+                created_at=now - timedelta(days=5),
+                updated_at=now - timedelta(days=1),
+                draft=False,
+            ),
+        ]
+        ctx = _ctx(open_pull_requests=prs)
+        result = self.collector.collect(ctx)
+        ratio_metric = next(m for m in result.metrics if m.metric_name == "stale_pr_ratio")
+        assert ratio_metric.metric_value == 50.0
+
+    def test_scaled_pr_backlog_active_team_not_penalized(self) -> None:
+        now = datetime.now(UTC)
+        # 6 contributors -> threshold max(20, 6 * 5) = 30. 25 open non-draft PRs.
+        commits = [
+            CommitSummary(
+                sha=f"c{i}",
+                message=f"feat {i}",
+                committed_at=now - timedelta(days=i),
+                author_login=f"dev{i}",
+            )
+            for i in range(6)
+        ]
+        prs = [
+            PullRequestSummary(
+                number=i,
+                title=f"Active PR {i}",
+                created_at=now - timedelta(days=5),
+                updated_at=now - timedelta(days=1),
+                draft=False,
+            )
+            for i in range(25)
+        ]
+        ctx = _ctx(
+            file_paths=[".github/pull_request_template.md"],
+            recent_commits=commits,
+            open_pull_requests=prs,
+        )
+        result = self.collector.collect(ctx)
+        assert not any(
+            "backlog" in f.title.lower() or "volume" in f.title.lower() for f in result.findings
+        )
+        score_metric = next(m for m in result.metrics if m.metric_name == "pull_requests_score")
+        assert score_metric.metric_value == 100.0
+
+    def test_unmaintained_large_pr_backlog_triggers_medium(self) -> None:
+        now = datetime.now(UTC)
+        # 1 contributor -> threshold 20. 25 open PRs, 10 stale (>30% stale)
+        prs = [
+            PullRequestSummary(
+                number=i,
+                title=f"PR {i}",
+                created_at=now - timedelta(days=60),
+                updated_at=now - timedelta(days=40 if i < 10 else 2),
+                draft=False,
+            )
+            for i in range(25)
+        ]
+        ctx = _ctx(file_paths=[".github/pull_request_template.md"], open_pull_requests=prs)
+        result = self.collector.collect(ctx)
+        backlog_finding = next(f for f in result.findings if "backlog" in f.title.lower())
+        assert backlog_finding.severity == "MEDIUM"
+        assert "unmaintained" in backlog_finding.title.lower()
+
+    def test_active_large_pr_backlog_triggers_low(self) -> None:
+        now = datetime.now(UTC)
+        # 1 contributor -> threshold 20. 25 open PRs, 0 stale
+        prs = [
+            PullRequestSummary(
+                number=i,
+                title=f"PR {i}",
+                created_at=now - timedelta(days=5),
+                updated_at=now - timedelta(days=1),
+                draft=False,
+            )
+            for i in range(25)
+        ]
+        ctx = _ctx(file_paths=[".github/pull_request_template.md"], open_pull_requests=prs)
+        result = self.collector.collect(ctx)
+        backlog_finding = next(
+            f
+            for f in result.findings
+            if "volume" in f.title.lower() or "backlog" in f.title.lower()
+        )
+        assert backlog_finding.severity == "LOW"
+        assert "volume" in backlog_finding.title.lower()
+        score_metric = next(m for m in result.metrics if m.metric_name == "pull_requests_score")
+        assert score_metric.metric_value == 95.0  # 100 - 5
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -521,3 +770,103 @@ class TestConfigurationCollector:
         result = self.collector.collect(ctx)
         metric = next(m for m in result.metrics if m.metric_name == "topic_count")
         assert metric.metric_value == 3.0
+
+    def test_branch_protection_full_clean(self) -> None:
+        ctx = _ctx(
+            description="A great ML library",
+            topics=["python", "ml"],
+            default_branch="main",
+            file_paths=[".github/workflows/ci.yml", "src/main.py"],
+            branch_protection={
+                "required_pull_request_reviews": {"required_approving_review_count": 2},
+                "required_status_checks": {"strict": True, "contexts": ["ci/tests"]},
+            },
+        )
+        result = self.collector.collect(ctx)
+        assert not any(f.severity in ("HIGH", "MEDIUM", "LOW") for f in result.findings)
+        assert (
+            next(m for m in result.metrics if m.metric_name == "has_branch_protection").metric_value
+            == 1.0
+        )
+        assert (
+            next(
+                m for m in result.metrics if m.metric_name == "requires_pull_request_reviews"
+            ).metric_value
+            == 1.0
+        )
+        assert (
+            next(
+                m for m in result.metrics if m.metric_name == "required_reviewers_count"
+            ).metric_value
+            == 2.0
+        )
+        assert (
+            next(
+                m for m in result.metrics if m.metric_name == "enforces_status_checks"
+            ).metric_value
+            == 1.0
+        )
+        assert (
+            next(m for m in result.metrics if m.metric_name == "configuration_score").metric_value
+            == 100.0
+        )
+
+    def test_branch_protection_without_reviews_produces_low_finding(self) -> None:
+        ctx = _ctx(
+            description="A great ML library",
+            topics=["python"],
+            default_branch="main",
+            file_paths=[".github/workflows/ci.yml", "src/main.py"],
+            branch_protection={
+                "required_status_checks": {"strict": True},
+            },
+        )
+        result = self.collector.collect(ctx)
+        finding = next(
+            f for f in result.findings if "does not enforce pr reviews" in f.title.lower()
+        )
+        assert finding.severity == "LOW"
+        assert (
+            next(m for m in result.metrics if m.metric_name == "configuration_score").metric_value
+            == 95.0
+        )
+
+    def test_branch_protection_without_status_checks_produces_informational(self) -> None:
+        ctx = _ctx(
+            description="A great ML library",
+            topics=["python"],
+            default_branch="main",
+            file_paths=[".github/workflows/ci.yml", "src/main.py"],
+            branch_protection={
+                "required_pull_request_reviews": {"required_approving_review_count": 1},
+            },
+        )
+        result = self.collector.collect(ctx)
+        finding = next(
+            f for f in result.findings if "does not enforce ci status checks" in f.title.lower()
+        )
+        assert finding.severity == "INFORMATIONAL"
+        assert (
+            next(m for m in result.metrics if m.metric_name == "configuration_score").metric_value
+            == 100.0
+        )
+
+    def test_missing_branch_protection_on_repo_with_code_produces_low_finding(self) -> None:
+        ctx = _ctx(
+            description="A great ML library",
+            topics=["python"],
+            default_branch="main",
+            file_paths=[".github/workflows/ci.yml", "src/main.py"],
+            branch_protection=None,
+        )
+        result = self.collector.collect(ctx)
+        finding = next(f for f in result.findings if "no branch protection" in f.title.lower())
+        assert finding.severity == "LOW"
+        assert (
+            next(m for m in result.metrics if m.metric_name == "has_branch_protection").metric_value
+            == 0.0
+        )
+        assert (
+            next(m for m in result.metrics if m.metric_name == "configuration_score").metric_value
+            == 90.0
+        )

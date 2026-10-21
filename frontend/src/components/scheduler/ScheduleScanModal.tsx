@@ -79,6 +79,27 @@ export function ScheduleScanModal({
   const dayDropdownRef = useRef<HTMLDivElement>(null);
   const activeDayRef = useRef<HTMLButtonElement>(null);
 
+  const [repoDropdownOpen, setRepoDropdownOpen] = useState(false);
+  const repoDropdownRef = useRef<HTMLDivElement>(null);
+  const activeRepoRef = useRef<HTMLButtonElement>(null);
+
+  const [showUtcInfo, setShowUtcInfo] = useState(false);
+  const [hoverUtcInfo, setHoverUtcInfo] = useState(false);
+  const utcInfoRef = useRef<HTMLDivElement>(null);
+
+  // Close UTC info tag on outside click
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (utcInfoRef.current && !utcInfoRef.current.contains(event.target as Node)) {
+        setShowUtcInfo(false);
+      }
+    }
+    if (showUtcInfo) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showUtcInfo]);
+
   // Close day dropdown on outside click
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -98,6 +119,26 @@ export function ScheduleScanModal({
       activeDayRef.current.scrollIntoView({ block: "nearest" });
     }
   }, [dayDropdownOpen]);
+
+  // Close repo dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (repoDropdownRef.current && !repoDropdownRef.current.contains(event.target as Node)) {
+        setRepoDropdownOpen(false);
+      }
+    }
+    if (repoDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [repoDropdownOpen]);
+
+  // Scroll active repo into view when dropdown opens
+  useEffect(() => {
+    if (repoDropdownOpen && activeRepoRef.current) {
+      activeRepoRef.current.scrollIntoView({ block: "nearest" });
+    }
+  }, [repoDropdownOpen]);
 
   // Sync state when opened
   useEffect(() => {
@@ -181,7 +222,7 @@ export function ScheduleScanModal({
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white">
+          <div className="relative z-20 px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-brand-50 border border-brand-100 flex items-center justify-center text-lg text-brand-600 shadow-2xs">
                 ⏱️
@@ -193,23 +234,86 @@ export function ScheduleScanModal({
                 {repositories && repositories.length > 1 ? (
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <span className="text-[11px] text-gray-500 font-medium">Repository:</span>
-                    <select
-                      value={repository.id}
-                      onChange={(e) => {
-                        const targetId = e.target.value;
-                        const found = repositories.find((r) => r.id === targetId);
-                        if (found && onSelectRepository) {
-                          onSelectRepository(found);
-                        }
-                      }}
-                      className="text-xs font-semibold text-brand-700 bg-brand-50/80 border border-brand-200 rounded-lg px-2 py-0.5 outline-hidden cursor-pointer hover:bg-brand-50 max-w-[260px] truncate"
-                    >
-                      {repositories.map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.full_name}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative" ref={repoDropdownRef}>
+                      <button
+                        type="button"
+                        onClick={() => setRepoDropdownOpen(!repoDropdownOpen)}
+                        className="flex items-center justify-between gap-2 px-2.5 py-1 text-xs font-semibold text-brand-700 bg-brand-50/80 hover:bg-brand-100/80 border border-brand-200 rounded-lg outline-hidden cursor-pointer transition-all shadow-2xs max-w-[280px]"
+                        title={repository.full_name}
+                      >
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-[12px] shrink-0">📦</span>
+                          <span className="truncate text-brand-900">{repository.full_name}</span>
+                        </div>
+                        <span
+                          className={`text-brand-500 text-[10px] shrink-0 transition-transform duration-200 ${
+                            repoDropdownOpen ? "rotate-180" : ""
+                          }`}
+                        >
+                          ▼
+                        </span>
+                      </button>
+
+                      {/* Dropdown showing 7 repositories at a time */}
+                      <AnimatePresence>
+                        {repoDropdownOpen && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                            transition={{ duration: 0.15 }}
+                            className="absolute left-0 top-full mt-1.5 w-72 sm:w-80 z-30 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden"
+                          >
+                            <div className="px-3 py-1.5 bg-gray-50 border-b border-gray-100 flex items-center justify-between text-[11px] text-gray-500">
+                              <span className="font-semibold text-gray-700">Select Repository</span>
+                              <span>{repositories.length} available</span>
+                            </div>
+                            <div className="max-h-[252px] overflow-y-auto divide-y divide-gray-50 py-0.5">
+                              {repositories.map((r) => {
+                                const isSelected = r.id === repository.id;
+                                return (
+                                  <button
+                                    key={r.id}
+                                    ref={isSelected ? activeRepoRef : undefined}
+                                    type="button"
+                                    onClick={() => {
+                                      if (onSelectRepository) {
+                                        onSelectRepository(r);
+                                      }
+                                      setRepoDropdownOpen(false);
+                                    }}
+                                    className={`w-full px-3 h-9 text-xs flex items-center justify-between text-left transition-colors cursor-pointer group ${
+                                      isSelected
+                                        ? "bg-brand-50 text-brand-700 font-bold"
+                                        : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                                    }`}
+                                    title={r.full_name}
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0 pr-2">
+                                      <span
+                                        className={`text-[12px] shrink-0 ${
+                                          isSelected ? "text-brand-600" : "text-gray-400 group-hover:text-gray-600"
+                                        }`}
+                                      >
+                                        📦
+                                      </span>
+                                      <span className="truncate text-xs">
+                                        {r.full_name}
+                                      </span>
+                                    </div>
+                                    {isSelected && (
+                                      <span className="text-brand-600 font-bold text-xs shrink-0">
+                                        ✓
+                                      </span>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
                   </div>
                 ) : (
                   <p className="text-xs text-gray-500">
@@ -425,9 +529,53 @@ export function ScheduleScanModal({
                 {/* Execution Time (UTC) with functional clock & alternative time selectors */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block">
-                      Execution Time (UTC)
-                    </label>
+                    <div className="flex items-center gap-1.5">
+                      <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block">
+                        Execution Time (UTC)
+                      </label>
+                      <div className="relative inline-flex items-center" ref={utcInfoRef}>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowUtcInfo((prev) => !prev);
+                          }}
+                          onMouseEnter={() => setHoverUtcInfo(true)}
+                          onMouseLeave={() => setHoverUtcInfo(false)}
+                          className="w-4 h-4 rounded-full bg-gray-100 hover:bg-brand-100 text-gray-500 hover:text-brand-700 text-[10px] font-bold flex items-center justify-center transition-colors cursor-pointer border border-gray-200"
+                          aria-label="What is UTC time?"
+                          title="Learn about UTC execution time"
+                        >
+                          ℹ
+                        </button>
+                        <AnimatePresence>
+                          {(showUtcInfo || hoverUtcInfo) && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 6, scale: 0.95 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: 4, scale: 0.95 }}
+                              transition={{ duration: 0.15 }}
+                              onMouseEnter={() => setHoverUtcInfo(true)}
+                              onMouseLeave={() => setHoverUtcInfo(false)}
+                              className="absolute left-0 top-full mt-1.5 z-50 w-72 p-3.5 bg-white rounded-xl shadow-xl border border-gray-200 text-gray-800 text-xs text-left"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="font-bold text-gray-900 mb-1 flex items-center gap-1.5">
+                                <span>🌐</span>
+                                <span>Coordinated Universal Time (UTC)</span>
+                              </div>
+                              <p className="text-[11px] text-gray-600 leading-relaxed">
+                                All recurring scans are scheduled and executed in standardized 24-hour UTC on backend background workers. This ensures consistent execution regardless of Daylight Saving Time (DST) or geographical timezone shifts.
+                              </p>
+                              <div className="mt-2 pt-2 border-t border-gray-100 text-[10px] text-brand-600 font-semibold flex items-center gap-1">
+                                <span>💡</span>
+                                <span>Tip: Use the clock toggle to view and set this time in your own local timezone.</span>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    </div>
                     <span className="text-[11px] text-gray-500 font-medium">
                       24h UTC standard
                     </span>

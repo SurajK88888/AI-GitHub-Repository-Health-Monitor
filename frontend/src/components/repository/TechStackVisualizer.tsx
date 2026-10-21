@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MotionCard } from "@/components/ui/MotionCard";
-import type { Repository, HealthScore, Finding } from "@/lib/types";
+import type { Repository, HealthScore, Finding, AIAnalysis } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -34,6 +34,7 @@ interface TechStackVisualizerProps {
   health?: HealthScore | null;
   findings?: Finding[];
   hasNoCode?: boolean;
+  aiAnalysis?: AIAnalysis | null;
 }
 
 // ── Technology Catalog & Heuristics ────────────────────────────────────────
@@ -72,19 +73,148 @@ const LAYER_CONFIG: Record<
   },
 };
 
+function getTechVisuals(name: string, layer: TechLayer): {
+  icon: string;
+  color: string;
+  bgLight: string;
+  borderColor: string;
+  tags: string[];
+} {
+  const n = name.toLowerCase();
+  if (n.includes("next")) {
+    return { icon: "▲", color: "#000000", bgLight: "bg-gray-100", borderColor: "border-gray-300", tags: ["Full-Stack", "SSR", "App Router"] };
+  }
+  if (n.includes("react")) {
+    return { icon: "⚛️", color: "#06b6d4", bgLight: "bg-cyan-50", borderColor: "border-cyan-200", tags: ["UI Library", "Hooks", "Components"] };
+  }
+  if (n.includes("vue")) {
+    return { icon: "💚", color: "#10b981", bgLight: "bg-emerald-50", borderColor: "border-emerald-200", tags: ["SFC", "Reactivity"] };
+  }
+  if (n.includes("svelte")) {
+    return { icon: "🔥", color: "#f97316", bgLight: "bg-orange-50", borderColor: "border-orange-200", tags: ["Compiler", "Reactive"] };
+  }
+  if (n.includes("typescript")) {
+    return { icon: "🔷", color: "#3178c6", bgLight: "bg-blue-50", borderColor: "border-blue-200", tags: ["Type Safety", "ESNext"] };
+  }
+  if (n.includes("tailwind")) {
+    return { icon: "🎨", color: "#06b6d4", bgLight: "bg-cyan-50", borderColor: "border-cyan-200", tags: ["Styling", "CSS Utility"] };
+  }
+  if (n.includes("fastapi")) {
+    return { icon: "⚡", color: "#059669", bgLight: "bg-emerald-50", borderColor: "border-emerald-200", tags: ["ASGI", "OpenAPI", "AsyncIO"] };
+  }
+  if (n.includes("django")) {
+    return { icon: "🎸", color: "#047857", bgLight: "bg-emerald-50", borderColor: "border-emerald-200", tags: ["ORM", "Python Framework"] };
+  }
+  if (n.includes("flask")) {
+    return { icon: "🧪", color: "#4b5563", bgLight: "bg-gray-50", borderColor: "border-gray-200", tags: ["WSGI", "Microservice"] };
+  }
+  if (n.includes("python")) {
+    return { icon: "🐍", color: "#3776ab", bgLight: "bg-blue-50", borderColor: "border-blue-200", tags: ["Runtime", "Async Services"] };
+  }
+  if (n.includes("node")) {
+    return { icon: "🟢", color: "#22c55e", bgLight: "bg-green-50", borderColor: "border-green-200", tags: ["Runtime", "V8 Engine"] };
+  }
+  if (n.includes("go") || n.includes("golang")) {
+    return { icon: "🐹", color: "#00add8", bgLight: "bg-cyan-50", borderColor: "border-cyan-200", tags: ["Concurrency", "Compiled"] };
+  }
+  if (n.includes("postgres") || n.includes("psql") || n.includes("sqlalchemy")) {
+    return { icon: "🐘", color: "#336791", bgLight: "bg-sky-50", borderColor: "border-sky-200", tags: ["SQL", "Relational DB", "ACID"] };
+  }
+  if (n.includes("redis") || n.includes("arq") || n.includes("celery")) {
+    return { icon: "🔴", color: "#dc2626", bgLight: "bg-red-50", borderColor: "border-red-200", tags: ["Cache", "Key-Value", "In-Memory"] };
+  }
+  if (n.includes("supabase")) {
+    return { icon: "⚡", color: "#22c55e", bgLight: "bg-emerald-50", borderColor: "border-emerald-200", tags: ["PostgreSQL", "RLS", "Realtime"] };
+  }
+  if (n.includes("mongo")) {
+    return { icon: "🍃", color: "#16a34a", bgLight: "bg-emerald-50", borderColor: "border-emerald-200", tags: ["NoSQL", "Document Store"] };
+  }
+  if (n.includes("sqlite")) {
+    return { icon: "💾", color: "#0284c7", bgLight: "bg-blue-50", borderColor: "border-blue-200", tags: ["Embedded DB", "Serverless"] };
+  }
+  if (n.includes("docker")) {
+    return { icon: "🐳", color: "#2496ed", bgLight: "bg-blue-50", borderColor: "border-blue-200", tags: ["Containers", "Virtualization"] };
+  }
+  if (n.includes("action") || n.includes("workflow") || n.includes("ci") || n.includes("cd")) {
+    return { icon: "⚙️", color: "#2088ff", bgLight: "bg-indigo-50", borderColor: "border-indigo-200", tags: ["Automated CI", "Workflows"] };
+  }
+
+  const layerMap: Record<TechLayer, { icon: string; color: string; bgLight: string; borderColor: string; tags: string[] }> = {
+    client: { icon: "💻", color: "#3b82f6", bgLight: "bg-blue-50", borderColor: "border-blue-200", tags: ["Client", "Frontend"] },
+    backend: { icon: "⚡", color: "#8b5cf6", bgLight: "bg-purple-50", borderColor: "border-purple-200", tags: ["Backend", "API Service"] },
+    data: { icon: "🗄️", color: "#10b981", bgLight: "bg-emerald-50", borderColor: "border-emerald-200", tags: ["Database", "Persistence"] },
+    devops: { icon: "🚀", color: "#f59e0b", bgLight: "bg-amber-50", borderColor: "border-amber-200", tags: ["DevOps", "Infrastructure"] },
+  };
+  return layerMap[layer] || layerMap.backend;
+}
+
 export function TechStackVisualizer({
   repo,
   health,
   findings = [],
   hasNoCode = false,
+  aiAnalysis,
 }: TechStackVisualizerProps) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [layerFilter, setLayerFilter] = useState<TechLayer | "all">("all");
 
-  // ── Intelligent Stack Detection Heuristics ───────────────────────────────
+  const isAiDetected = useMemo(() => {
+    return Array.isArray(aiAnalysis?.result?.tech_stack) && aiAnalysis.result.tech_stack.length > 0;
+  }, [aiAnalysis]);
+
+  // ── Intelligent Stack Detection (AI Primary + Local Heuristics Fallback/Merge) ──
   const detectedNodes = useMemo<TechNode[]>(() => {
     if (hasNoCode) return [];
 
+    const openFindingTitles = findings
+      .filter((f) => f.status === "OPEN")
+      .map((f) => f.title.toLowerCase());
+
+    const hasDepFindings = openFindingTitles.some((t) => t.includes("lockfile") || t.includes("manifest"));
+    const hasSecFindings = openFindingTitles.some((t) => t.includes("secret") || t.includes("vulnerability"));
+    const hasCiFinding = openFindingTitles.some((t) => t.includes("ci/cd") || t.includes("workflow"));
+
+    // 1. Process AI-detected tech stack items if present
+    const aiItems = aiAnalysis?.result?.tech_stack;
+    const aiNodes: TechNode[] = [];
+    const seenNames = new Set<string>();
+
+    if (Array.isArray(aiItems) && aiItems.length > 0) {
+      for (const item of aiItems) {
+        if (!item || !item.name) continue;
+        const normalizedName = item.name.trim();
+        const key = normalizedName.toLowerCase();
+        if (seenNames.has(key)) continue;
+        seenNames.add(key);
+
+        const layer: TechLayer = (["client", "backend", "data", "devops"].includes(item.layer)
+          ? item.layer
+          : "backend") as TechLayer;
+        const visuals = getTechVisuals(normalizedName, layer);
+
+        const isAttention =
+          (layer === "data" && hasSecFindings) ||
+          (layer === "devops" && hasCiFinding) ||
+          (layer === "backend" && hasDepFindings && (health?.overall_score ?? 100) < 60);
+
+        aiNodes.push({
+          id: `ai-${key.replace(/[^a-z0-9]/g, "-")}`,
+          name: normalizedName,
+          layer,
+          icon: visuals.icon,
+          color: visuals.color,
+          bgLight: visuals.bgLight,
+          borderColor: visuals.borderColor,
+          purpose: item.purpose || `${normalizedName} component configured for the project.`,
+          connectionStatus: isAttention ? "attention" : "connected",
+          statusLabel: isAttention ? "Needs Review" : `Active (${item.confidence || "high"} confidence)`,
+          detectedVia: "Gemini AI Architecture Analysis",
+          tags: [...visuals.tags, item.confidence ? `${item.confidence} confidence` : "verified"],
+        });
+      }
+    }
+
+    // 2. Local Heuristics
     const nodes: TechNode[] = [];
     const textBlob = [
       repo.name,
@@ -96,14 +226,6 @@ export function TechStackVisualizer({
     ]
       .join(" ")
       .toLowerCase();
-
-    const openFindingTitles = findings
-      .filter((f) => f.status === "OPEN")
-      .map((f) => f.title.toLowerCase());
-
-    const hasDepFindings = openFindingTitles.some((t) => t.includes("lockfile") || t.includes("manifest"));
-    const hasSecFindings = openFindingTitles.some((t) => t.includes("secret") || t.includes("vulnerability"));
-    const hasCiFinding = openFindingTitles.some((t) => t.includes("ci/cd") || t.includes("workflow"));
 
     // ── 1. Client / UI Detection ───────────────────────────────────────────
     const isNext = textBlob.includes("next") || textBlob.includes("nextjs");
@@ -484,8 +606,19 @@ export function TechStackVisualizer({
       });
     }
 
+    // Merge AI-detected nodes with unique heuristic nodes
+    if (aiNodes.length > 0) {
+      for (const h of nodes) {
+        if (!seenNames.has(h.name.toLowerCase())) {
+          seenNames.add(h.name.toLowerCase());
+          aiNodes.push(h);
+        }
+      }
+      return aiNodes;
+    }
+
     return nodes;
-  }, [repo, findings, hasNoCode]);
+  }, [repo, findings, hasNoCode, aiAnalysis, health]);
 
   // Filter nodes according to selected tier tab
   const filteredNodes = useMemo(() => {
@@ -528,6 +661,11 @@ export function TechStackVisualizer({
             <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
               {detectedNodes.length} Components Mapped
             </span>
+            {isAiDetected && (
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1 shadow-2xs">
+                <span>✨</span> AI Architecture Scan
+              </span>
+            )}
           </div>
           <p className="text-xs text-gray-500 mt-1">
             Dynamic architectural node map. Hover or click any technology node to inspect its system role, live connection status, and configuration origin.

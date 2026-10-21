@@ -85,6 +85,7 @@ body {
   height: 100vh;
   overflow-y: auto;
   z-index: 40;
+  transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .app-content {
@@ -93,6 +94,23 @@ body {
   min-width: 0;
   display: flex;
   flex-direction: column;
+  transition: margin-left 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Disable transitions while actively dragging to ensure 60fps tracking */
+.app-layout.is-resizing .app-sidebar,
+.app-layout.is-resizing .app-content {
+  transition: none !important;
+}
+
+/* Small screens (tablets & mobile devices): hide fixed desktop sidebar */
+@media (max-width: 767px) {
+  .app-sidebar {
+    display: none !important;
+  }
+  .app-content {
+    margin-left: 0 !important;
+  }
 }
 
 .app-topbar {
