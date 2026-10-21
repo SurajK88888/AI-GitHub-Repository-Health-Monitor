@@ -1,30 +1,57 @@
 #!/bin/sh
-# Pre-commit hook: Auto-format backend Python files with ruff and re-stage
+# Pre-commit hook: Auto-format and validate backend & frontend before commit
 
-# Find staged Python files in backend/
-staged_files=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^backend/.*\.py$')
+set -e
 
-if [ -n "$staged_files" ]; then
-    echo "⚡ [pre-commit] Auto-formatting backend Python files with Ruff..."
+# 1. Backend Python files
+staged_backend=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^backend/.*\.py$' || true)
+
+if [ -n "$staged_backend" ]; then
+    echo "⚡ [pre-commit] Checking and formatting backend Python files with Ruff..."
 
     if command -v python >/dev/null 2>&1; then
         PYTHON_EXEC="python"
     elif command -v py >/dev/null 2>&1; then
         PYTHON_EXEC="py"
     else
-        echo "⚠️ Python not found, skipping Ruff formatting."
-        exit 0
+        echo "⚠️ Python not found, skipping Ruff."
     fi
 
-    echo "$staged_files" | while IFS= read -r file; do
-        if [ -f "$file" ]; then
-            $PYTHON_EXEC -m ruff format "$file"
-            $PYTHON_EXEC -m ruff check --fix "$file"
-            git add "$file"
-        fi
-    done
+    if [ -n "$PYTHON_EXEC" ]; then
+        echo "$staged_backend" | while IFS= read -r file; do
+            if [ -f "$file" ]; then
+                $PYTHON_EXEC -m ruff format "$file"
+                $PYTHON_EXEC -m ruff check --fix "$file"
+                git add "$file"
+            fi
+        done
 
-    echo "✅ [pre-commit] Backend formatting complete and staged."
+        # Verify no remaining unfixable errors
+        if ! $PYTHON_EXEC -m ruff check backend; then
+            echo "❌ [pre-commit] Backend lint errors remain. Please fix before committing."
+            exit 1
+        fi
+        echo "✅ [pre-commit] Backend formatting and checks passed."
+    fi
+fi
+
+# 2. Frontend TypeScript/JavaScript files
+staged_frontend=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^frontend/.*(\.ts|\.tsx|\.js|\.mjs)$' || true)
+
+if [ -n "$staged_frontend" ]; then
+    echo "⚡ [pre-commit] Checking frontend files with ESLint..."
+    if command -v npm >/dev/null 2>&1; then
+        (
+            cd frontend
+            npm run lint
+        ) || {
+            echo "❌ [pre-commit] Frontend lint errors detected. Please fix before committing."
+            exit 1
+        }
+        echo "✅ [pre-commit] Frontend lint checks passed."
+    else
+        echo "⚠️ npm not found, skipping frontend lint."
+    fi
 fi
 
 exit 0
