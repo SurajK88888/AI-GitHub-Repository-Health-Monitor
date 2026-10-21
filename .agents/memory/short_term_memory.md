@@ -1,6 +1,16 @@
 # Short-Term Memory
 
 ## Current status
+- **Session 36 (2026-10-21): Fixed Frontend CI Lint Failure (Globals, React Hooks & TypeScript Invariants).**
+  - **Issues Resolved:**
+    1. **Missing Globals & `no-undef` Overreach:** `js.configs.recommended` enabled `no-undef` which erroneously flagged browser APIs (`window`, `document`, `localStorage`) and TypeScript DOM types (`HTMLDivElement`, etc.). Added `...globals.browser` and `...globals.node` and disabled `"no-undef": "off"` for TypeScript files as recommended by `typescript-eslint`.
+    2. **Unregistered `react-hooks` Plugin:** Registered `eslint-plugin-react-hooks` in `plugins` and extended `recommended` rules so directive comments (`// eslint-disable-next-line react-hooks/exhaustive-deps`) resolve without errors.
+    3. **Allow Safe Empty Catch:** Added `"no-empty": ["error", { allowEmptyCatch: true }]` for safe local storage fallback patterns.
+    4. **Top-Level Next.js Plugin Registration:** Added root plugin definition for `@next/next` so Next.js detection warning is eliminated.
+  - **Verification:**
+    - `npm run lint` (`next lint`): **Exit Code: 0 (0 errors, clean pass)**.
+    - `npm run type-check`: **0 errors**.
+    - Pre-commit hook ran cleanly with 0 errors. Committed `a243460` and pushed to `seventhphase`.
 - **Session 35 (2026-10-21): Fixed Incompatible Type Variance In test_ai_service.py (_sanitize_findings).**
   - **Issue Reported:** Type error `Argument 1 to "_sanitize_findings" has incompatible type "list[MagicMock]"; expected "list[Finding]"`.
   - **Root Cause:** Mutable container invariance in Python. `_sanitize_findings` required `list[Finding]`, rejecting mock collections passed in unit tests.
