@@ -1,6 +1,14 @@
 # Short-Term Memory
 
 ## Current status
+- **Session 37 (2026-10-21): Implemented Unified Local Pre-Commit Hook (Backend & Frontend).**
+  - **Feature:**
+    1. Upgraded `.githooks/pre-commit` and `.git/hooks/pre-commit` to automatically detect and lint both backend and frontend staged files.
+    2. Backend: runs `ruff format` and `ruff check --fix` on staged Python files and fails fast (`exit 1`) if unfixable errors remain.
+    3. Frontend: runs `npm run lint` on frontend files and fails fast (`exit 1`) if unfixable errors remain.
+    4. Guarantees that unfixable lint errors cannot be committed or pushed locally, preventing CI surprises.
+  - **Verification:**
+    - Committed `c5ba389` and pushed to `seventhphase`.
 - **Session 36 (2026-10-21): Fixed Frontend CI Lint Failure (Globals, React Hooks & TypeScript Invariants).**
   - **Issues Resolved:**
     1. **Missing Globals & `no-undef` Overreach:** `js.configs.recommended` enabled `no-undef` which erroneously flagged browser APIs (`window`, `document`, `localStorage`) and TypeScript DOM types (`HTMLDivElement`, etc.). Added `...globals.browser` and `...globals.node` and disabled `"no-undef": "off"` for TypeScript files as recommended by `typescript-eslint`.
