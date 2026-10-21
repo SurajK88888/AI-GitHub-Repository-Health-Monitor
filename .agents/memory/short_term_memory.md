@@ -1,6 +1,18 @@
 # Short-Term Memory
 
 ## Current status
+- **Session 34 (2026-10-21): Fixed Backend Bandit Linting (S110, S311) & Frontend ESLint 9 Flat Config Migration.**
+  - **Issues Resolved:**
+    1. **Backend Bandit S110 (`try`-`except`-`pass`):** In `backend/app/services/ai/analyzer.py` and `client.py`, bare `except Exception: pass` blocks were replaced with explicit logger debug entries (`logger.debug(..., exc_info=True)` / specific exceptions) to prevent silent error masking.
+    2. **Backend Bandit S311 (Pseudo-random jitter in exponential backoff):** Annotated `random.uniform` in `backend/app/services/ai/client.py` with `# noqa: S311` because network retry backoff jitter is non-cryptographic.
+    3. **Backend Test Assertion Adjustment:** In `backend/tests/test_ai_service.py`, aligned test bounds to `6.5 <= delay_default <= 8.0` matching the base 3.0 backoff multiplier introduced to avoid RPM limits.
+    4. **Frontend ESLint 9 Flat Config Migration:** Migrated legacy `.eslintrc.json` to modern `frontend/eslint.config.mjs` incorporating `@eslint/js`, `@typescript-eslint/parser`, `@typescript-eslint/eslint-plugin`, and `@next/eslint-plugin-next`, resolving the `@rushstack/eslint-patch` / missing config error.
+  - **Verification:**
+    - `python -m ruff check backend`: **All checks passed (0 errors)**.
+    - `python -m pytest tests/test_ai_service.py`: **36 / 36 passed**.
+    - `npm run type-check`: **0 errors**.
+    - `npm run build`: **Compiled successfully (all 12 routes generated)**.
+    - Pre-commit hook ran cleanly with 0 errors. Committed `672ee81` and pushed to `seventhphase`.
 - **Session 33 (2026-10-19): Fixed Type Variance Invariance Error in build_analysis_prompt.**
   - **Issue Reported:** Type error `Argument list[dict[str, float | str]] is not assignable to parameter category_scores with type list[dict[str, object]] in function build_analysis_prompt @ analyzer.py:L527`.
   - **Root Cause:** In Python's type system, mutable containers (`list` and `dict`) are strictly invariant. Even though `float | str` is a subtype of `object`, `dict[str, float | str]` is not assignable to `dict[str, object]`, nor is `list[...]`.
