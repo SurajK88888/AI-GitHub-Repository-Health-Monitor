@@ -72,13 +72,13 @@ def _extract_retry_after(response: httpx.Response | None) -> float | None:
                 try:
                     return float(header_val)
                 except (ValueError, TypeError):
-                    pass
+                    logger.debug("Could not parse retry-after header value: %s", header_val)
             ms_val = headers.get("retry-after-ms")
             if ms_val:
                 try:
                     return float(ms_val) / 1000.0
                 except (ValueError, TypeError):
-                    pass
+                    logger.debug("Could not parse retry-after-ms header value: %s", ms_val)
     except Exception:
         logger.debug("Failed to parse retry headers", exc_info=True)
     try:

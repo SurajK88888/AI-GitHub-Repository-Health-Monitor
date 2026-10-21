@@ -564,8 +564,8 @@ def test_calculate_backoff_adds_jitter() -> None:
 
     # Without response, base exponential + jitter
     delay_default = _calculate_backoff(attempt=1)
-    # base is 2 * (2**1) = 4, jitter is 0.5 to 2.0
-    assert 4.5 <= delay_default <= 6.0
+    # base is 3 * (2**1) = 6, jitter is 0.5 to 2.0
+    assert 6.5 <= delay_default <= 8.0
 
 
 @pytest.mark.asyncio
