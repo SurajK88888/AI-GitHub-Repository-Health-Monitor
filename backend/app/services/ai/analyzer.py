@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 
@@ -52,7 +53,7 @@ _VALID_CATEGORIES = {
 }
 
 
-def _sanitize_findings(findings: list[Finding]) -> list[dict[str, Any]]:
+def _sanitize_findings(findings: Sequence[Finding]) -> list[dict[str, Any]]:
     """Convert Finding ORM rows to safe dicts for prompt inclusion.
 
     Only includes severity, category, title, and description.

@@ -37,7 +37,7 @@ def _make_finding(
     category: str = "SECURITY",
     title: str = "Test finding",
     description: str = "Test description",
-) -> MagicMock:
+) -> Any:
     f = MagicMock()
     f.severity = severity
     f.category = category

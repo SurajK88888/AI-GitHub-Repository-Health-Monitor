@@ -1,6 +1,16 @@
 # Short-Term Memory
 
 ## Current status
+- **Session 35 (2026-10-21): Fixed Incompatible Type Variance In test_ai_service.py (_sanitize_findings).**
+  - **Issue Reported:** Type error `Argument 1 to "_sanitize_findings" has incompatible type "list[MagicMock]"; expected "list[Finding]"`.
+  - **Root Cause:** Mutable container invariance in Python. `_sanitize_findings` required `list[Finding]`, rejecting mock collections passed in unit tests.
+  - **Fix Applied:**
+    1. In `backend/app/services/ai/analyzer.py`, updated `_sanitize_findings` parameter type to `Sequence[Finding]`.
+    2. In `backend/tests/test_ai_service.py`, updated `_make_finding` return type annotation to `Any`.
+  - **Verification:**
+    - `python -m mypy tests/test_ai_service.py`: **Success: no issues found in 1 source file**.
+    - `python -m ruff check backend`: **All checks passed!**
+    - `python -m pytest tests/test_ai_service.py --no-cov`: **36 / 36 passed**.
 - **Session 34 (2026-10-21): Fixed Backend Bandit Linting (S110, S311) & Frontend ESLint 9 Flat Config Migration.**
   - **Issues Resolved:**
     1. **Backend Bandit S110 (`try`-`except`-`pass`):** In `backend/app/services/ai/analyzer.py` and `client.py`, bare `except Exception: pass` blocks were replaced with explicit logger debug entries (`logger.debug(..., exc_info=True)` / specific exceptions) to prevent silent error masking.
