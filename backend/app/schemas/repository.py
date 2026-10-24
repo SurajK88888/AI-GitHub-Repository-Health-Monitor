@@ -70,3 +70,28 @@ class RepositoryScheduleResponse(APIModel):
 
 class PaginatedRepositoryResponse(PaginatedResponse):
     items: list[RepositoryResponse] = []
+
+
+class GenerateDescriptionResponse(APIModel):
+    """AI generated repository description response."""
+
+    repository_id: uuid.UUID
+    repository_name: str
+    description: str
+    safe_files_analyzed: list[str] = Field(default_factory=list)
+
+
+class UpdateDescriptionRequest(APIModel):
+    """Request to update a repository's description."""
+
+    description: str = Field(min_length=1, max_length=1024)
+    apply_to_github: bool = False
+
+
+class UpdateDescriptionResponse(APIModel):
+    """Response after updating repository description."""
+
+    repository_id: uuid.UUID
+    description: str
+    applied_to_github: bool
+    github_error: str | None = None

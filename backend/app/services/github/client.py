@@ -97,6 +97,25 @@ class GitHubClient:
         result: dict[str, Any] | list[Any] = response.json()
         return result
 
+    async def patch(self, path: str, **kwargs: Any) -> dict[str, Any] | list[Any]:
+        """Perform a PATCH request and return parsed JSON."""
+        assert self._client is not None, "Use GitHubClient as async context manager"
+        response = await self._client.patch(path, **kwargs)
+        self._check_rate_limit(response)
+        response.raise_for_status()
+        result: dict[str, Any] | list[Any] = response.json()
+        return result
+
+    async def update_repository_description(self, description: str) -> dict[str, Any]:
+        """Update repository description on GitHub via PATCH /repos/{owner}/{repo}."""
+        owner = self._owner
+        repo = self._repo
+        assert owner and repo, "owner and repo must be set to update description"
+        payload = {"description": description}
+        res = await self.patch(f"/repos/{owner}/{repo}", json=payload)
+        assert isinstance(res, dict)
+        return res
+
     async def get_branch_sha(self, branch: str) -> str | None:
         """Get the latest commit SHA of a branch."""
         owner = self._owner

@@ -24,6 +24,7 @@ import { timeAgo } from "@/lib/utils";
 import { api } from "@/lib/api";
 import type { Repository, Paginated } from "@/lib/types";
 import { ScheduleScanModal, ScheduleButtonWithInfo } from "@/components/scheduler";
+import { GenerateDescriptionModal } from "@/components/repository/GenerateDescriptionModal";
 
 const stagger = {
   hidden: {},
@@ -42,6 +43,8 @@ function RepositoriesContent() {
   const [scanMsg, setScanMsg] = useState<{ id: string; msg: string } | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
+  const [selectedRepoForDescription, setSelectedRepoForDescription] = useState<Repository | null>(null);
+  const [descriptionModalOpen, setDescriptionModalOpen] = useState(false);
   const searchParams = useSearchParams();
   const autoSyncedRef = useRef(false);
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
@@ -271,11 +274,26 @@ function RepositoriesContent() {
                     )}
                   </div>
 
-                  {/* Description */}
-                  {repo.description && (
+                  {/* Description / AI Generator */}
+                  {repo.description ? (
                     <p className="text-sm text-gray-600 line-clamp-2 mb-3">
                       {repo.description}
                     </p>
+                  ) : (
+                    <div className="mb-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedRepoForDescription(repo);
+                          setDescriptionModalOpen(true);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-50/90 text-purple-700 hover:bg-purple-100/90 border border-purple-200/80 transition-all cursor-pointer shadow-2xs group"
+                        title="Generate repository description using AI"
+                      >
+                        <span className="text-xs group-hover:scale-110 transition-transform">✨</span>
+                        <span>Generate with AI</span>
+                      </button>
+                    </div>
                   )}
 
                   {/* Meta */}
@@ -360,6 +378,20 @@ function RepositoriesContent() {
           repositories={repos}
           onSelectRepository={(r) => setSelectedRepoForSchedule(r)}
           onScheduleUpdated={() => {
+            refetch();
+          }}
+        />
+      )}
+
+      {selectedRepoForDescription && (
+        <GenerateDescriptionModal
+          isOpen={descriptionModalOpen}
+          onClose={() => {
+            setDescriptionModalOpen(false);
+            setSelectedRepoForDescription(null);
+          }}
+          repository={selectedRepoForDescription}
+          onDescriptionUpdated={(_repoId, _newDesc) => {
             refetch();
           }}
         />
