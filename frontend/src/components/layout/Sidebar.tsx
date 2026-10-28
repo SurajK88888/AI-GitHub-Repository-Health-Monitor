@@ -80,7 +80,7 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "app-sidebar flex flex-col bg-[#181438] bg-gradient-to-b from-[#181438] to-[#20134b] text-white select-none relative overflow-x-hidden",
+        "app-sidebar flex flex-col bg-[#0F171E]/65 backdrop-blur-[20px] border-r border-white/[0.08] text-white select-none relative overflow-x-hidden",
         isCollapsed ? "w-[68px]" : ""
       )}
       style={{
@@ -91,7 +91,7 @@ export function Sidebar({
       {/* Brand Header */}
       <div
         className={cn(
-          "border-b border-white/10 transition-all duration-300",
+          "border-b border-white/[0.08] transition-all duration-300",
           isCollapsed ? "py-4 px-2 flex flex-col items-center gap-2.5" : "py-5 px-5 flex items-center justify-between"
         )}
       >
@@ -99,8 +99,8 @@ export function Sidebar({
           <>
             {/* Logo centered cleanly */}
             <Link href="/" className="flex items-center justify-center" title="AI GitHub Health Monitor">
-              <div className="w-9 h-9 rounded-xl bg-gradient-brand flex items-center justify-center shadow-brand-sm flex-shrink-0">
-                <span className="text-white text-base font-bold">⬡</span>
+              <div className="w-9 h-9 rounded-xl bg-white/[0.06] border border-white/[0.15] flex items-center justify-center flex-shrink-0">
+                <span className="text-[#F59E0B] text-base font-bold">⬡</span>
               </div>
             </Link>
 
@@ -109,7 +109,7 @@ export function Sidebar({
               <button
                 type="button"
                 onClick={onToggleCollapse}
-                className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 text-purple-200 hover:text-white flex items-center justify-center text-xs font-bold transition-all shadow-xs cursor-pointer"
+                className="w-7 h-7 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-white/70 hover:text-white border border-white/[0.10] flex items-center justify-center text-xs font-bold transition-all shadow-xs cursor-pointer"
                 title="Expand sidebar"
                 aria-label="Expand sidebar"
               >
@@ -120,8 +120,8 @@ export function Sidebar({
         ) : (
           <>
             <Link href="/" className="flex items-center gap-2.5 min-w-0" title="AI GitHub Health Monitor">
-              <div className="w-8 h-8 rounded-lg bg-gradient-brand flex items-center justify-center shadow-brand-sm flex-shrink-0">
-                <span className="text-white text-base font-bold">⬡</span>
+              <div className="w-8 h-8 rounded-lg bg-white/[0.06] border border-white/[0.15] flex items-center justify-center flex-shrink-0">
+                <span className="text-[#F59E0B] text-base font-bold">⬡</span>
               </div>
               <div className="min-w-0 flex-1 transition-opacity duration-300">
                 <p
@@ -132,7 +132,7 @@ export function Sidebar({
                 >
                   Health Monitor
                 </p>
-                <p className={cn("text-purple-300 font-medium tracking-wide truncate", isCompact ? "text-[11px]" : "text-xs")}>
+                <p className={cn("text-white/40 font-medium tracking-wide truncate", isCompact ? "text-[11px]" : "text-xs")}>
                   GitHub Analytics
                 </p>
               </div>
@@ -143,7 +143,7 @@ export function Sidebar({
               <button
                 type="button"
                 onClick={onToggleCollapse}
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-purple-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer flex-shrink-0 text-sm font-bold ml-1"
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-white/50 hover:text-white hover:bg-white/[0.08] border border-transparent hover:border-white/[0.10] transition-colors cursor-pointer flex-shrink-0 text-sm font-bold ml-1"
                 title="Collapse sidebar (icon view)"
                 aria-label="Collapse sidebar"
               >
@@ -162,22 +162,22 @@ export function Sidebar({
             <Link key={item.href} href={item.href} className="block group relative" title={isCollapsed ? item.label : undefined}>
               <div
                 className={cn(
-                  "relative flex items-center rounded-xl transition-all duration-200",
+                  "relative flex items-center transition-all duration-200",
                   isCollapsed
-                    ? "w-10 h-10 mx-auto justify-center px-0"
+                    ? "w-10 h-10 mx-auto justify-center px-0 rounded-xl"
                     : isCompact
-                    ? "px-2.5 py-2 gap-2 text-xs font-medium"
-                    : "px-3 py-2.5 gap-3 text-sm font-medium",
+                    ? "px-2.5 py-2 gap-2 text-xs font-medium rounded-[12px]"
+                    : "px-3 py-2.5 gap-3 text-sm font-medium rounded-[12px]",
                   isActive
-                    ? "bg-white text-brand-900 shadow-sm font-semibold"
-                    : "text-purple-200/80 hover:text-white hover:bg-white/10"
+                    ? "bg-white/[0.10] border border-white/[0.22] text-white font-semibold shadow-sm"
+                    : "text-white/55 hover:text-white hover:bg-white/[0.04] border border-transparent"
                 )}
               >
                 <span
                   className={cn(
                     "flex-shrink-0 flex items-center justify-center text-center",
                     isCompact && !isCollapsed ? "text-sm w-4" : "text-base w-5",
-                    isActive ? "text-brand-600" : "text-purple-300"
+                    isActive ? "text-[#F59E0B]" : "text-white/40"
                   )}
                 >
                   {item.icon}
@@ -191,13 +191,13 @@ export function Sidebar({
 
                 {item.href === "/notifications" && unreadCount > 0 && (
                   isCollapsed ? (
-                    <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-brand-500 border-2 border-[#181438] animate-pulse" />
+                    <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-[#F59E0B] border-2 border-[#090D11] animate-pulse" />
                   ) : (
                     <span
                       className={cn(
                         "font-bold rounded-full flex items-center justify-center flex-shrink-0",
                         isCompact ? "text-[10px] min-w-[18px] h-4 px-1" : "text-xs min-w-[20px] h-5 px-1.5",
-                        isActive ? "bg-brand-600 text-white" : "bg-brand-500 text-white"
+                        isActive ? "bg-white/20 text-white border border-white/25" : "bg-[#F59E0B] text-[#090D11]"
                       )}
                     >
                       {unreadCount > 99 ? "99+" : unreadCount}
@@ -208,7 +208,7 @@ export function Sidebar({
 
               {/* Floating Tooltip in Collapsed Mode */}
               {isCollapsed && (
-                <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-2.5 py-1 text-xs font-semibold rounded-lg bg-gray-900/95 text-white shadow-xl border border-white/10 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 whitespace-nowrap">
+                <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-2.5 py-1 text-xs font-semibold rounded-lg bg-[#0F161E]/95 backdrop-blur-md text-white shadow-xl border border-white/10 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 whitespace-nowrap">
                   {item.label}
                   {item.href === "/notifications" && unreadCount > 0 && ` (${unreadCount})`}
                 </div>
@@ -221,7 +221,7 @@ export function Sidebar({
       {/* Footer / Version badge */}
       <div
         className={cn(
-          "py-3.5 border-t border-white/10 flex items-center text-purple-300/60 font-medium transition-all duration-300 overflow-hidden",
+          "py-3.5 border-t border-white/[0.08] flex items-center text-white/[0.35] font-medium transition-all duration-300 overflow-hidden",
           isCollapsed ? "px-2 justify-center text-[10px]" : isCompact ? "px-3.5 justify-between text-[11px]" : "px-5 justify-between text-xs"
         )}
       >
@@ -234,15 +234,15 @@ export function Sidebar({
         <div
           onPointerDown={handlePointerDown}
           className={cn(
-            "absolute top-0 right-0 bottom-0 w-2.5 cursor-col-resize z-50 group flex items-center justify-center transition-colors hover:bg-brand-500/25",
-            isDragging && "bg-brand-500/30"
+            "absolute top-0 right-0 bottom-0 w-2.5 cursor-col-resize z-50 group flex items-center justify-center transition-colors hover:bg-white/[0.06]",
+            isDragging && "bg-white/[0.08]"
           )}
           title="Drag to resize sidebar (190px – 360px)"
         >
           <div
             className={cn(
               "w-0.5 h-8 rounded-full transition-colors",
-              isDragging ? "bg-brand-400" : "bg-transparent group-hover:bg-brand-400/80"
+              isDragging ? "bg-[#F59E0B]" : "bg-transparent group-hover:bg-[#F59E0B]/70"
             )}
           />
         </div>

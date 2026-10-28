@@ -4,29 +4,29 @@
 
 /* ── Design tokens ───────────────────────────────────── */
 :root {
-  --bg:          #f7f7fb;
-  --surface:     #ffffff;
-  --border:      #e5e7eb;
-  --border-soft: #ede9fe;
-  --text:        #111827;
-  --text-muted:  #6b7280;
-  --text-light:  #9ca3af;
-  --brand:       #8b5cf6;
-  --brand-dark:  #6d28d9;
-  --brand-light: #ede9fe;
-  --sidebar-bg:  #1e1b4b;
+  --bg:          #090D11;
+  --surface:     rgba(15, 23, 30, 0.55);
+  --border:      rgba(255, 255, 255, 0.08);
+  --border-soft: rgba(255, 255, 255, 0.12);
+  --text:        #FFFFFF;
+  --text-muted:  rgba(255, 255, 255, 0.60);
+  --text-light:  rgba(255, 255, 255, 0.40);
+  --brand:       #F59E0B;
+  --brand-dark:  #d97706;
+  --brand-light: rgba(245, 158, 11, 0.15);
+  --sidebar-bg:  #0F171E;
   --sidebar-w:   240px;
 }
 
 .dark {
-  --bg:          #0b0914;
-  --surface:     #131024;
-  --border:      #262142;
-  --border-soft: #38315e;
-  --text:        #f3f4f6;
-  --text-muted:  #9ca3af;
-  --text-light:  #6b7280;
-  --brand-light: #241442;
+  --bg:          #090D11;
+  --surface:     rgba(15, 23, 30, 0.55);
+  --border:      rgba(255, 255, 255, 0.08);
+  --border-soft: rgba(255, 255, 255, 0.12);
+  --text:        #FFFFFF;
+  --text-muted:  rgba(255, 255, 255, 0.60);
+  --text-light:  rgba(255, 255, 255, 0.40);
+  --brand-light: rgba(245, 158, 11, 0.15);
 }
 
 /* ── Reset ───────────────────────────────────────────── */
@@ -72,13 +72,17 @@ body {
 .app-layout {
   display: flex;
   min-height: 100vh;
+  background: #090D11;
+  color: #FFFFFF;
 }
 
 .app-sidebar {
   width: var(--sidebar-w);
   flex-shrink: 0;
-  background: var(--sidebar-bg);
-  background-image: linear-gradient(180deg, #1e1b4b 0%, #2e1065 100%);
+  background: rgba(15, 23, 30, 0.65);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
   position: fixed;
   top: 0;
   left: 0;
@@ -94,6 +98,8 @@ body {
   min-width: 0;
   display: flex;
   flex-direction: column;
+  background: #090D11;
+  color: #FFFFFF;
   transition: margin-left 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -117,10 +123,10 @@ body {
   position: sticky;
   top: 0;
   z-index: 30;
-  background: rgba(255,255,255,0.95);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border);
+  background: rgba(9, 13, 17, 0.70);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   height: 60px;
   display: flex;
   align-items: center;
@@ -130,28 +136,30 @@ body {
 }
 
 .dark .app-topbar {
-  background: rgba(19, 16, 36, 0.95);
-  border-bottom-color: var(--border);
+  background: rgba(9, 13, 17, 0.70);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
 }
 
 
 .app-main {
   flex: 1;
   padding: 24px;
-  background: var(--bg);
+  background: transparent;
 }
 
 /* ── Cards ───────────────────────────────────────────── */
 .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 1px 3px 0 rgba(0,0,0,0.04);
+  background: rgba(15, 23, 30, 0.55);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  box-shadow: none;
   transition: box-shadow 0.25s ease, transform 0.25s ease;
 }
 
 .card:hover {
-  box-shadow: 0 8px 25px -5px rgba(139,92,246,0.12), 0 4px 10px -6px rgba(0,0,0,0.06);
+  border-color: rgba(255, 255, 255, 0.2);
   transform: translateY(-2px);
 }
 
@@ -172,10 +180,10 @@ body {
 
 /* ── Skeleton shimmer ────────────────────────────────── */
 .skeleton {
-  background: linear-gradient(90deg, #f3f4f6 25%, #e9eaed 50%, #f3f4f6 75%);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.03) 25%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.03) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.6s ease-in-out infinite;
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 @keyframes shimmer {

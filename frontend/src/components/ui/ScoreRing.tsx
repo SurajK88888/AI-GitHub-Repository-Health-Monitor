@@ -43,7 +43,7 @@ export function ScoreRing({
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="#f3f4f6"
+          stroke="rgba(255, 255, 255, 0.08)"
           strokeWidth={strokeWidth}
         />
         {/* Fill */}
@@ -86,7 +86,7 @@ export function ScoreRing({
           {Math.round(clamped)}
         </motion.span>
         {size > 60 && (
-          <span style={{ fontSize: "0.6rem", color: "#9ca3af", marginTop: 2 }}>/ 100</span>
+          <span style={{ fontSize: "0.6rem", color: "rgba(255, 255, 255, 0.40)", marginTop: 2 }}>/ 100</span>
         )}
       </div>
     </div>

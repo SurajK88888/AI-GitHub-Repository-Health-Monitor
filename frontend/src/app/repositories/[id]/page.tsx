@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 import { useSession } from "next-auth/react";
 import { useRouter, useParams } from "next/navigation";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -485,22 +485,22 @@ function CategoryBar({
   onOpenInfo,
 }: CategoryBarProps) {
   return (
-    <div className="space-y-1.5 p-2 rounded-xl hover:bg-gray-50/80 transition-colors">
+    <div className="space-y-1.5 p-2 rounded-xl hover:bg-white/[0.04] transition-colors">
       <div className="flex justify-between items-start text-xs">
         <div className="min-w-0 pr-2">
           <div className="flex items-center gap-1.5">
-            <span className="text-gray-800 font-semibold">{label}</span>
+            <span className="text-white font-medium">{label}</span>
             <button
               type="button"
               onClick={() => onOpenInfo(categoryKey)}
-              className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-800 text-[10px] font-bold transition-all border border-blue-200 cursor-pointer shrink-0"
+              className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-white/[0.06] text-white/70 hover:bg-white/[0.12] hover:text-white text-[10px] font-bold transition-all border border-white/[0.12] cursor-pointer shrink-0"
               title={`View ${label} details & calculation logic`}
               aria-label={`View ${label} details`}
             >
               i
             </button>
           </div>
-          <p className="text-[11px] text-gray-500 mt-0.5 leading-snug line-clamp-1">
+          <p className="text-[11px] text-white/45 mt-0.5 leading-snug line-clamp-1">
             {shortDesc}
           </p>
         </div>
@@ -508,7 +508,7 @@ function CategoryBar({
           {Math.round(score)}
         </span>
       </div>
-      <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+      <div className="h-2 rounded-full bg-white/[0.08] overflow-hidden">
         <motion.div
           className="h-full rounded-full"
           style={{ background: color }}
@@ -633,12 +633,38 @@ export default function RepositoryDetailPage() {
     }
   }, [refetchRecs, refetchActions]);
 
+  // ── Auto-poll AI actions every 2s while an action is executing ──
+  const hasExecutingAction = useMemo(() => {
+    return (
+      Boolean(executingId) ||
+      (actionsData?.items ?? []).some((a) => a.status === "EXECUTING")
+    );
+  }, [executingId, actionsData?.items]);
+
+  useEffect(() => {
+    if (!hasExecutingAction || activeTab !== "actions") return;
+    const interval = setInterval(() => {
+      refetchActions();
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [hasExecutingAction, activeTab, refetchActions]);
+
+  // Clear executingId once the target action has completed or failed
+  useEffect(() => {
+    if (!executingId || !actionsData?.items) return;
+    const target = actionsData.items.find((a) => a.id === executingId);
+    if (target && (target.status === "COMPLETED" || target.status === "FAILED")) {
+      setExecutingId(null);
+    }
+  }, [executingId, actionsData?.items]);
+
   const executeAction = useCallback(async (actionId: string) => {
     setExecutingId(actionId);
     try {
       await api.post(`/actions/${actionId}/execute`);
-      refetchActions();
-    } finally {
+      await refetchActions();
+    } catch (err: unknown) {
+      console.error("Execute action error:", err);
       setExecutingId(null);
     }
   }, [refetchActions]);
@@ -821,8 +847,18 @@ export default function RepositoryDetailPage() {
 
                 })()}
               </div>
-            ) : (
+            ) : activeScanId || healthLoading ? (
               <Skeleton className="h-48" />
+            ) : (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <div className="w-12 h-12 rounded-[14px] bg-white/[0.04] border border-white/[0.12] flex items-center justify-center text-xl mb-3">
+                  📊
+                </div>
+                <h4 className="text-sm font-medium text-white mb-1">No category breakdown available</h4>
+                <p className="text-xs text-white/45 max-w-sm">
+                  Run a health scan to calculate category scores for documentation, security, code quality, and dependencies.
+                </p>
+              </div>
             )}
           </div>
         </MotionCard>
@@ -846,7 +882,7 @@ export default function RepositoryDetailPage() {
               <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-600 text-white text-xs font-bold shadow-xs">
                 AI
               </span>
-              <h3 className="text-sm font-semibold text-gray-900">
+              <h3 className="text-sm font-medium text-white">
                 Health Assessment
               </h3>
             </div>
@@ -884,16 +920,16 @@ export default function RepositoryDetailPage() {
 
       {/* Tabs */}
       <div className="mb-5">
-        <div className="flex gap-1 p-1 bg-white rounded-xl border border-gray-200 shadow-sm w-fit">
+        <div className="flex gap-1 p-1 bg-white/[0.04] rounded-full border border-white/[0.12] w-fit">
           {TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                "relative px-4 py-2 text-sm font-semibold rounded-lg transition-all",
+                "relative px-4 py-1.5 text-xs font-medium rounded-full transition-all cursor-pointer",
                 activeTab === tab.id
-                  ? "bg-brand-50 text-brand-700 shadow-sm"
-                  : "text-gray-500 hover:text-gray-900 hover:bg-gray-50",
+                  ? "bg-white text-[#090D11] shadow-sm font-semibold"
+                  : "text-white/60 hover:text-white",
               )}
             >
               {tab.label}
@@ -926,13 +962,13 @@ export default function RepositoryDetailPage() {
                     <div className="flex items-start gap-4">
                       <SeverityBadge severity={f.severity} className="shrink-0 mt-0.5" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-gray-900">{f.title}</p>
-                        <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{f.description}</p>
+                        <p className="text-sm font-medium text-white">{f.title}</p>
+                        <p className="text-xs text-white/50 mt-0.5 line-clamp-2">{f.description}</p>
                         {f.resource && (
                           <p className="text-xs text-brand-600 mt-1 font-mono">{f.resource}</p>
                         )}
                       </div>
-                      <span className="shrink-0 text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md font-medium">
+                      <span className="shrink-0 text-xs text-white/70 bg-white/[0.06] border border-white/[0.10] px-2.5 py-0.5 rounded-full font-medium">
                         {f.category}
                       </span>
                     </div>
@@ -965,7 +1001,7 @@ export default function RepositoryDetailPage() {
                     <div className="flex items-start gap-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <p className="text-sm font-semibold text-gray-900">{rec.title}</p>
+                          <p className="text-sm font-medium text-white">{rec.title}</p>
                           <span className="text-xs text-gray-500 px-1.5 py-0.5 rounded bg-gray-100 font-medium">
                             Priority {rec.priority}
                           </span>
@@ -1021,49 +1057,108 @@ export default function RepositoryDetailPage() {
               <EmptyState title="No AI actions yet" icon="⚡" description="Approve recommendations to create actions" />
             ) : (
               <div className="space-y-2">
-                {(actionsData?.items ?? []).map((action) => (
-                  <MotionCard key={action.id} className="p-4">
-                    <div className="flex items-start gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="text-sm font-semibold text-gray-900">{action.action_type}</p>
-                          <AIActionStatusBadge status={action.status} />
+                {(actionsData?.items ?? []).map((action) => {
+                  const isProcessing = action.status === "EXECUTING" || executingId === action.id;
+                  const isCompleted = action.status === "COMPLETED";
+                  const isFailed = action.status === "FAILED";
+                  const prUrl = action.result?.pull_request_url || action.pr_url;
+                  const branchName = action.result?.branch_name || action.branch_name;
+
+                  return (
+                    <MotionCard
+                      key={action.id}
+                      className={cn(
+                        "p-4 transition-all duration-300",
+                        isProcessing && "border-amber-500/40 bg-amber-500/[0.03]",
+                        isCompleted && "border-emerald-500/20",
+                        isFailed && "border-rose-500/20"
+                      )}
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <p className="text-sm font-medium text-white">{action.action_type}</p>
+                            <AIActionStatusBadge status={isProcessing ? "EXECUTING" : action.status} />
+                          </div>
+
+                          {branchName && (
+                            <p className="text-xs text-white/50 font-mono mt-0.5">
+                              ⎇ Branch: {branchName}
+                            </p>
+                          )}
+
+                          {/* Real-time processing indicator */}
+                          {isProcessing && (
+                            <div className="mt-2.5 flex items-center gap-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300">
+                              <span className="w-3.5 h-3.5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin shrink-0" />
+                              <span className="text-xs">
+                                Executing remediation on GitHub… Creating branch & opening Pull Request.
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Completed / Successful result banner */}
+                          {isCompleted && (
+                            <div className="mt-2.5 flex items-center justify-between gap-3 p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 flex-wrap">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm">🎉</span>
+                                <span className="text-xs font-medium">Remediation successfully executed on GitHub!</span>
+                              </div>
+                              {prUrl && (
+                                <a
+                                  href={prUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-emerald-200 hover:text-white underline-offset-2 hover:underline font-semibold inline-flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500/30 transition-colors shrink-0"
+                                >
+                                  View Pull Request ↗
+                                </a>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Failed / Error result banner */}
+                          {isFailed && (
+                            <div className="mt-2.5 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300">
+                              <div className="flex items-center gap-1.5 text-xs font-semibold text-rose-400 mb-1">
+                                <span>⚠️</span>
+                                <span>Execution failed on GitHub</span>
+                              </div>
+                              {action.error_message ? (
+                                <p className="text-xs text-rose-200/90 font-mono break-words whitespace-pre-wrap mt-0.5">
+                                  {action.error_message}
+                                </p>
+                              ) : (
+                                <p className="text-xs text-rose-200/70">
+                                  An unexpected error occurred during execution.
+                                </p>
+                              )}
+                            </div>
+                          )}
                         </div>
-                        {(action.result?.branch_name || action.branch_name) && (
-                          <p className="text-xs text-gray-500 font-mono">
-                            Branch: {action.result?.branch_name || action.branch_name}
-                          </p>
-                        )}
-                        {(action.result?.pull_request_url || action.pr_url) && (
-                          <a
-                            href={action.result?.pull_request_url || action.pr_url || "#"}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-brand-600 hover:text-brand-700 underline-offset-2 hover:underline font-medium inline-flex items-center gap-1"
-                          >
-                            View Pull Request ↗
-                          </a>
-                        )}
-                        {action.error_message && (
-                          <p className="text-xs text-red-600 mt-1">{action.error_message}</p>
-                        )}
+
+                        <div className="shrink-0 flex flex-col items-end gap-2">
+                          <p className="text-xs text-gray-400">{timeAgo(action.created_at)}</p>
+                          {isProcessing ? (
+                            <div className="flex items-center gap-1.5 text-xs text-amber-400 font-medium px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/20">
+                              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                              Processing…
+                            </div>
+                          ) : action.status === "APPROVED" ? (
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              loading={executingId === action.id}
+                              onClick={() => executeAction(action.id)}
+                            >
+                              Execute
+                            </Button>
+                          ) : null}
+                        </div>
                       </div>
-                      <div className="shrink-0 flex flex-col items-end gap-2">
-                        <p className="text-xs text-gray-400">{timeAgo(action.created_at)}</p>
-                        {action.status === "APPROVED" && (
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            loading={executingId === action.id}
-                            onClick={() => executeAction(action.id)}
-                          >
-                            Execute
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </MotionCard>
-                ))}
+                    </MotionCard>
+                  );
+                })}
               </div>
             )}
           </motion.div>

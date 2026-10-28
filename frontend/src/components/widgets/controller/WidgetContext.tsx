@@ -132,10 +132,21 @@ export function WidgetProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function useWidgetController() {
+const FALLBACK_CONTROLLER: WidgetContextValue = {
+  settings: DEFAULT_SETTINGS,
+  mounted: false,
+  setMasterEnabled: () => {},
+  setWidgetVisible: () => {},
+  showAllWidgets: () => {},
+  hideAllWidgets: () => {},
+  resetAllPositions: () => {},
+  isWidgetVisible: () => true,
+};
+
+export function useWidgetController(): WidgetContextValue {
   const ctx = useContext(WidgetContext);
   if (!ctx) {
-    throw new Error("useWidgetController must be used within a WidgetProvider");
+    return FALLBACK_CONTROLLER;
   }
   return ctx;
 }

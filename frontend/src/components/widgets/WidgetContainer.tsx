@@ -29,10 +29,8 @@ function ActiveWidgetsRenderer() {
  */
 export function WidgetContainer() {
   return (
-    <WidgetProvider>
-      <div id="app-widget-container" className="pointer-events-auto">
-        <ActiveWidgetsRenderer />
-      </div>
-    </WidgetProvider>
+    <div id="app-widget-container" className="pointer-events-auto">
+      <ActiveWidgetsRenderer />
+    </div>
   );
 }

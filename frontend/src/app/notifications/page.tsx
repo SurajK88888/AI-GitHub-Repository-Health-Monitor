@@ -107,8 +107,8 @@ export default function NotificationsPage() {
                 className={cn(
                   "px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-200",
                   filter === t.key
-                    ? "bg-brand-50 text-brand-700 border-brand-300 shadow-sm"
-                    : "bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-800",
+                    ? "bg-white text-[#090D11] border-white font-medium rounded-full shadow-sm"
+                    : "bg-white/[0.04] text-white/60 border-white/[0.12] hover:bg-white/[0.08] hover:text-white rounded-full",
                 )}
               >
                 {t.label}
@@ -169,7 +169,7 @@ export default function NotificationsPage() {
                   <MotionCard
                     className={cn(
                       "p-4 transition-colors",
-                      !isRead && "border-brand-200 bg-brand-50/20",
+                      !isRead && "border-white/[0.20] bg-white/[0.08]",
                     )}
                   >
                     <div className="flex items-start gap-4">
@@ -185,14 +185,14 @@ export default function NotificationsPage() {
                       {/* Content */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-3 mb-1">
-                          <p className={cn("text-sm font-semibold", isRead ? "text-gray-500" : "text-gray-900")}>
+                          <p className={cn("text-sm font-semibold", isRead ? "text-white/40" : "text-white")}>
                             {n.title}
                           </p>
                           <SeverityBadge severity={n.severity} className="shrink-0" />
                         </div>
-                        <p className="text-xs text-gray-500 line-clamp-2">{n.message}</p>
+                        <p className="text-xs text-white/60 line-clamp-2">{n.message}</p>
                         <div className="flex items-center gap-3 mt-2">
-                          <span className="text-xs text-gray-400">{timeAgo(n.created_at)}</span>
+                          <span className="text-xs text-white/40">{timeAgo(n.created_at)}</span>
                           <span className="text-xs text-gray-400 font-medium">{n.type.replace(/_/g, " ")}</span>
                         </div>
                       </div>
@@ -201,7 +201,7 @@ export default function NotificationsPage() {
                       {!isRead && (
                         <button
                           onClick={() => markRead(n.id)}
-                          className="shrink-0 text-sm text-gray-400 hover:text-brand-600 transition-colors p-1"
+                          className="shrink-0 text-sm text-gray-400 hover:text-[#F59E0B] transition-colors p-1"
                           aria-label="Mark as read"
                         >
                           ✓

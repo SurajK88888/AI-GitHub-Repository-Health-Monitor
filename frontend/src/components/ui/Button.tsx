@@ -18,17 +18,17 @@ interface ButtonProps {
 }
 
 const VARIANTS = {
-  primary:   "bg-brand-500 hover:bg-brand-600 text-white shadow-brand-sm border border-brand-500",
-  secondary: "bg-white hover:bg-gray-50 text-gray-700 border border-gray-200",
-  ghost:     "bg-transparent hover:bg-gray-100 text-gray-600 border border-transparent",
-  danger:    "bg-red-500 hover:bg-red-600 text-white border border-red-500",
-  outline:   "bg-transparent hover:bg-brand-50 text-brand-600 border border-brand-300",
+  primary:   "bg-white hover:bg-white/90 active:bg-white/80 text-[#090D11] border border-white font-medium shadow-sm",
+  secondary: "bg-white/[0.05] hover:bg-white/[0.10] text-white border border-white/[0.14] font-medium backdrop-blur-md",
+  ghost:     "bg-transparent hover:bg-white/[0.06] text-white/70 hover:text-white border border-transparent font-medium",
+  danger:    "bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/25 font-medium",
+  outline:   "bg-transparent hover:bg-white/[0.06] text-[#F59E0B] border border-[#F59E0B]/30 font-medium",
 };
 
 const SIZES = {
-  sm: "px-3 py-1.5 text-xs gap-1.5 rounded-lg",
-  md: "px-4 py-2 text-sm gap-2 rounded-lg",
-  lg: "px-5 py-2.5 text-sm gap-2 rounded-xl",
+  sm: "px-3.5 py-1.5 text-xs gap-1.5 rounded-full",
+  md: "px-4 py-2 text-sm gap-2 rounded-full",
+  lg: "px-5 py-2.5 text-sm gap-2 rounded-full",
 };
 
 export function Button({

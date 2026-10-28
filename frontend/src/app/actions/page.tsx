@@ -95,8 +95,8 @@ export default function ActionsPage() {
             className={cn(
               "px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-200",
               filter === s
-                ? "bg-brand-50 text-brand-700 border-brand-300 shadow-sm"
-                : "bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-800",
+                ? "bg-white text-[#090D11] border-white font-medium rounded-full shadow-sm"
+                : "bg-white/[0.04] text-white/60 border-white/[0.12] hover:bg-white/[0.08] hover:text-white rounded-full",
             )}
           >
             {s}
@@ -133,12 +133,12 @@ export default function ActionsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-2">
                       <AIActionStatusBadge status={action.status} />
-                      <span className="text-sm font-semibold text-gray-900">
+                      <span className="text-sm font-medium text-white">
                         {action.action_type}
                       </span>
                     </div>
 
-                    <div className="flex flex-wrap gap-4 text-xs text-gray-500 mb-2">
+                    <div className="flex flex-wrap gap-4 text-xs text-white/40 mb-2">
                       <span>Repo: {action.repository_id.slice(0, 8).toUpperCase()}</span>
                       <span>Created {timeAgo(action.created_at)}</span>
                       {action.executed_at && (

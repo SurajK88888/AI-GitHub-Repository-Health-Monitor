@@ -146,7 +146,7 @@ export default function DashboardPage() {
           <button
             onClick={handleSync}
             disabled={syncing}
-            className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold rounded-lg border border-gray-200 transition-colors shadow-sm disabled:opacity-60 cursor-pointer"
+            className="flex items-center gap-1.5 px-4 py-2 bg-white/[0.05] hover:bg-white/[0.10] text-white text-sm font-medium rounded-full border border-white/[0.14] transition-all shadow-sm disabled:opacity-60 cursor-pointer backdrop-blur-md"
           >
             <span>⚡</span>
             <span>{syncing ? "Syncing..." : "Sync GitHub"}</span>
@@ -154,7 +154,7 @@ export default function DashboardPage() {
           {repos.length > 0 && (
             <button
               onClick={handleOpenSchedule}
-              className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold rounded-lg border border-gray-200 transition-colors shadow-sm cursor-pointer"
+              className="flex items-center gap-1.5 px-4 py-2 bg-white/[0.05] hover:bg-white/[0.10] text-white text-sm font-medium rounded-full border border-white/[0.14] transition-all shadow-sm cursor-pointer backdrop-blur-md"
               title="Configure automated recurring AI scan schedule"
             >
               <span>⏱️</span>
@@ -162,7 +162,7 @@ export default function DashboardPage() {
             </button>
           )}
           <Link href="/repositories">
-            <button className="flex items-center gap-1.5 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg transition-colors shadow-brand-sm cursor-pointer">
+            <button className="flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-white/90 active:bg-white/80 text-[#090D11] text-sm font-medium rounded-full transition-all shadow-sm cursor-pointer">
               <span className="text-base font-bold leading-none">+</span>
               <span>New Scan</span>
             </button>

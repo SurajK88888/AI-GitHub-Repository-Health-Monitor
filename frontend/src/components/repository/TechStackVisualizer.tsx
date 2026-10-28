@@ -647,33 +647,33 @@ export function TechStackVisualizer({
   }, [detectedNodes]);
 
   return (
-    <MotionCard className="mb-6 p-6 border-gray-200 shadow-sm overflow-hidden bg-white">
+    <MotionCard className="mb-6 p-6 border-white/[0.12] rounded-[24px] shadow-none overflow-hidden bg-[#0F171E]/55 backdrop-blur-[20px] text-white">
       {/* Container Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-gray-100">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-white/[0.08]">
         <div>
           <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-200 text-sm shadow-2xs font-bold">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/[0.06] text-[#F59E0B] border border-white/[0.12] text-sm font-bold">
               🗺️
             </span>
-            <h3 className="text-base font-bold text-gray-900">
+            <h3 className="text-base font-bold text-white">
               Interactive Tech Stack Visualizer
             </h3>
-            <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
               {detectedNodes.length} Components Mapped
             </span>
             {isAiDetected && (
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1 shadow-2xs">
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#F59E0B]/10 text-[#F59E0B] border border-[#F59E0B]/20 flex items-center gap-1">
                 <span>✨</span> AI Architecture Scan
               </span>
             )}
           </div>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-white/50 mt-1">
             Dynamic architectural node map. Hover or click any technology node to inspect its system role, live connection status, and configuration origin.
           </p>
         </div>
 
         {/* Layer Filter Tabs */}
-        <div className="flex items-center gap-1 p-1 bg-gray-100/80 rounded-xl border border-gray-200 text-xs self-start sm:self-auto">
+        <div className="flex items-center gap-1 p-1 bg-white/[0.04] rounded-full border border-white/[0.10] text-xs self-start sm:self-auto">
           {(["all", "client", "backend", "data", "devops"] as const).map((layer) => (
             <button
               key={layer}
@@ -681,8 +681,8 @@ export function TechStackVisualizer({
               className={cn(
                 "px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer capitalize text-[11px]",
                 layerFilter === layer
-                  ? "bg-white text-gray-900 shadow-2xs font-semibold"
-                  : "text-gray-500 hover:text-gray-800"
+                  ? "bg-white text-[#090D11] shadow-sm font-medium rounded-full"
+                  : "text-white/60 hover:text-white rounded-full"
               )}
             >
               {layer === "all" ? "All Layers" : LAYER_CONFIG[layer].label.split(" ")[0]}
@@ -697,7 +697,7 @@ export function TechStackVisualizer({
           <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center text-xl mb-3 shadow-2xs">
             ⚠️
           </div>
-          <h4 className="text-sm font-bold text-gray-900">
+          <h4 className="text-sm font-semibold text-white">
             No Architectural Components Detected
           </h4>
           <p className="text-xs text-gray-500 max-w-md mt-1">
@@ -719,19 +719,19 @@ export function TechStackVisualizer({
                   className={cn(
                     "flex flex-col rounded-2xl p-3.5 border transition-all duration-200",
                     isFilteredOut
-                      ? "opacity-30 bg-gray-50/50 border-dashed border-gray-200"
-                      : "bg-gray-50/60 border-gray-200/80 shadow-2xs"
+                      ? "opacity-30 bg-white/[0.02] border-dashed border-white/[0.08]"
+                      : "bg-white/[0.03] border-white/[0.08] shadow-none"
                   )}
                 >
                   {/* Layer Header */}
-                  <div className="flex items-center justify-between gap-1.5 pb-2.5 mb-2.5 border-b border-gray-200/70">
+                  <div className="flex items-center justify-between gap-1.5 pb-2.5 mb-2.5 border-b border-white/[0.08]">
                     <div className="flex items-center gap-1.5">
                       <span className="text-sm">{layerMeta.icon}</span>
-                      <span className="text-xs font-bold text-gray-800">
+                      <span className="text-xs font-semibold text-white">
                         {layerMeta.label}
                       </span>
                     </div>
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-white border border-gray-200 text-gray-600">
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-white/[0.06] border border-white/[0.10] text-white/70">
                       {layerNodes.length}
                     </span>
                   </div>
@@ -739,7 +739,7 @@ export function TechStackVisualizer({
                   {/* Nodes in this layer */}
                   <div className="space-y-2 flex-1">
                     {layerNodes.length === 0 ? (
-                      <div className="h-20 rounded-xl border border-dashed border-gray-200 flex items-center justify-center text-[11px] text-gray-400 font-medium">
+                      <div className="h-20 rounded-xl border border-dashed border-white/[0.10] flex items-center justify-center text-[11px] text-white/40 font-medium">
                         None detected
                       </div>
                     ) : (
@@ -754,15 +754,15 @@ export function TechStackVisualizer({
                             className={cn(
                               "w-full text-left p-3 rounded-xl border transition-all duration-200 relative group cursor-pointer",
                               isSelected
-                                ? "bg-white border-indigo-500 shadow-md ring-2 ring-indigo-500/20"
-                                : "bg-white hover:bg-white border-gray-200 hover:border-gray-300 shadow-2xs"
+                                ? "bg-white/[0.08] border-[#F59E0B] shadow-sm ring-2 ring-[#F59E0B]/20"
+                                : "bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.10] hover:border-white/[0.20] shadow-none"
                             )}
                           >
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex items-center gap-2 min-w-0">
                                 <span className="text-lg shrink-0">{node.icon}</span>
                                 <div className="min-w-0">
-                                  <h5 className="text-xs font-bold text-gray-900 truncate group-hover:text-indigo-600 transition-colors">
+                                  <h5 className="text-xs font-medium text-white truncate group-hover:text-[#F59E0B] transition-colors">
                                     {node.name}
                                   </h5>
                                   <p className="text-[10px] text-gray-400 truncate">
@@ -804,17 +804,17 @@ export function TechStackVisualizer({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
                 transition={{ duration: 0.15 }}
-                className="rounded-2xl border border-gray-200 bg-gradient-to-r from-gray-50/70 via-white to-gray-50/40 p-5 shadow-xs"
+                className="rounded-2xl border border-white/[0.12] bg-[#0F161E]/90 backdrop-blur-md p-5 text-white"
               >
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                   {/* Left: Node Info & Purpose */}
                   <div className="flex items-start gap-3.5 min-w-0">
-                    <div className="w-11 h-11 rounded-2xl bg-white border border-gray-200 shadow-2xs flex items-center justify-center text-2xl shrink-0">
+                    <div className="w-11 h-11 rounded-2xl bg-white/[0.06] border border-white/[0.12] flex items-center justify-center text-2xl shrink-0">
                       {activeNode.icon}
                     </div>
                     <div>
                       <div className="flex items-center gap-2.5 flex-wrap">
-                        <h4 className="text-sm font-bold text-gray-900">
+                        <h4 className="text-sm font-semibold text-white">
                           {activeNode.name}
                         </h4>
                         <span
@@ -850,7 +850,7 @@ export function TechStackVisualizer({
                         </span>
                       </div>
 
-                      <p className="text-xs text-gray-600 mt-1.5 leading-relaxed max-w-2xl">
+                      <p className="text-xs text-white/70 mt-1.5 leading-relaxed max-w-2xl">
                         {activeNode.purpose}
                       </p>
                     </div>
@@ -860,7 +860,7 @@ export function TechStackVisualizer({
                   <div className="flex flex-col lg:items-end gap-1.5 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-gray-100 text-xs">
                     <div className="flex items-center gap-1.5 text-gray-500">
                       <span className="text-gray-400">Detected Source:</span>
-                      <code className="px-2 py-0.5 rounded-md bg-white border border-gray-200 text-gray-700 font-mono text-[11px]">
+                      <code className="px-2 py-0.5 rounded-md bg-white/[0.06] border border-white/[0.12] text-white/80 font-mono text-[11px]">
                         {activeNode.detectedVia}
                       </code>
                     </div>
@@ -869,7 +869,7 @@ export function TechStackVisualizer({
                       {activeNode.tags.map((tag) => (
                         <span
                           key={tag}
-                          className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 text-[10px] font-medium"
+                          className="px-2 py-0.5 rounded-md bg-white/[0.06] text-white/60 text-[10px] font-medium border border-white/[0.08]"
                         >
                           #{tag}
                         </span>

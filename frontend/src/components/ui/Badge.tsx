@@ -6,12 +6,12 @@ import type { ScoreBand, FindingSeverity, ScanStatus, AIActionStatus } from "@/l
 // ── Severity badge ────────────────────────────────────────────────────────────
 
 const SEVERITY_STYLES: Record<FindingSeverity, string> = {
-  CRITICAL:      "bg-red-50 text-red-700 border border-red-200",
-  HIGH:          "bg-orange-50 text-orange-700 border border-orange-200",
-  MEDIUM:        "bg-amber-50 text-amber-700 border border-amber-200",
-  LOW:           "bg-blue-50 text-blue-700 border border-blue-200",
-  INFO:          "bg-gray-100 text-gray-600 border border-gray-200",
-  INFORMATIONAL: "bg-gray-100 text-gray-600 border border-gray-200",
+  CRITICAL:      "bg-rose-500/10 text-rose-400 border border-rose-500/20",
+  HIGH:          "bg-orange-500/10 text-orange-400 border border-orange-500/20",
+  MEDIUM:        "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+  LOW:           "bg-sky-500/10 text-sky-400 border border-sky-500/20",
+  INFO:          "bg-white/[0.05] text-white/60 border border-white/[0.10]",
+  INFORMATIONAL: "bg-white/[0.05] text-white/60 border border-white/[0.10]",
 };
 
 const SEVERITY_DOT: Record<FindingSeverity, string> = {
@@ -42,11 +42,11 @@ export function SeverityBadge({
 // ── Score band badge ──────────────────────────────────────────────────────────
 
 const BAND_STYLES: Record<ScoreBand, string> = {
-  EXCELLENT:       "bg-emerald-50 text-emerald-700 border border-emerald-200",
-  GOOD:            "bg-blue-50 text-blue-700 border border-blue-200",
-  NEEDS_ATTENTION: "bg-amber-50 text-amber-700 border border-amber-200",
-  POOR:            "bg-orange-50 text-orange-700 border border-orange-200",
-  CRITICAL:        "bg-red-50 text-red-700 border border-red-200",
+  EXCELLENT:       "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+  GOOD:            "bg-sky-500/10 text-sky-400 border border-sky-500/20",
+  NEEDS_ATTENTION: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+  POOR:            "bg-orange-500/10 text-orange-400 border border-orange-500/20",
+  CRITICAL:        "bg-rose-500/10 text-rose-400 border border-rose-500/20",
 };
 
 const BAND_LABELS: Record<ScoreBand, string> = {
@@ -74,11 +74,11 @@ export function ScoreBandBadge({
 // ── Scan status badge ─────────────────────────────────────────────────────────
 
 const SCAN_STATUS_STYLES: Record<ScanStatus, string> = {
-  QUEUED:     "bg-gray-100 text-gray-600 border border-gray-200",
-  RUNNING:    "bg-brand-50 text-brand-700 border border-brand-200",
-  COMPLETED:  "bg-emerald-50 text-emerald-700 border border-emerald-200",
-  FAILED:     "bg-red-50 text-red-700 border border-red-200",
-  CANCELLED:  "bg-gray-100 text-gray-500 border border-gray-200",
+  QUEUED:     "bg-white/[0.05] text-white/60 border border-white/[0.10]",
+  RUNNING:    "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+  COMPLETED:  "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+  FAILED:     "bg-rose-500/10 text-rose-400 border border-rose-500/20",
+  CANCELLED:  "bg-white/[0.05] text-white/40 border border-white/[0.10]",
 };
 
 export function ScanStatusBadge({
@@ -101,11 +101,19 @@ export function ScanStatusBadge({
 // ── AI Action status badge ────────────────────────────────────────────────────
 
 const ACTION_STATUS_STYLES: Record<AIActionStatus, string> = {
-  PENDING:   "bg-gray-100 text-gray-600 border border-gray-200",
-  APPROVED:  "bg-blue-50 text-blue-700 border border-blue-200",
-  EXECUTING: "bg-brand-50 text-brand-700 border border-brand-200",
-  COMPLETED: "bg-emerald-50 text-emerald-700 border border-emerald-200",
-  FAILED:    "bg-red-50 text-red-700 border border-red-200",
+  PENDING:   "bg-white/[0.05] text-white/60 border border-white/[0.10]",
+  APPROVED:  "bg-sky-500/10 text-sky-400 border border-sky-500/20",
+  EXECUTING: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+  COMPLETED: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+  FAILED:    "bg-rose-500/10 text-rose-400 border border-rose-500/20",
+};
+
+const ACTION_STATUS_LABELS: Record<AIActionStatus, string> = {
+  PENDING:   "Pending",
+  APPROVED:  "Approved",
+  EXECUTING: "Processing...",
+  COMPLETED: "Successful",
+  FAILED:    "Failed",
 };
 
 export function AIActionStatusBadge({
@@ -116,11 +124,17 @@ export function AIActionStatusBadge({
   className?: string;
 }) {
   return (
-    <span className={cn("badge", ACTION_STATUS_STYLES[status], className)}>
+    <span className={cn("badge inline-flex items-center gap-1.5", ACTION_STATUS_STYLES[status], className)}>
       {status === "EXECUTING" && (
-        <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse" />
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
       )}
-      {status}
+      {status === "COMPLETED" && (
+        <span className="text-[11px] font-bold">✓</span>
+      )}
+      {status === "FAILED" && (
+        <span className="text-[11px] font-bold">✕</span>
+      )}
+      {ACTION_STATUS_LABELS[status] || status}
     </span>
   );
 }

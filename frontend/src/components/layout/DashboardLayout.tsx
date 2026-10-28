@@ -94,11 +94,18 @@ export function DashboardLayout({ children, title, subtitle, actions }: Dashboar
 
   return (
     <div
-      className={cn("app-layout", isDragging && "is-resizing")}
+      className={cn("app-layout relative min-h-screen bg-[#090D11] text-white overflow-x-hidden", isDragging && "is-resizing")}
       style={{
         "--sidebar-w": `${effectiveWidth}px`,
       } as React.CSSProperties}
     >
+      {/* Top-right ambient glow matching luxury hero design */}
+      <div
+        className="pointer-events-none fixed top-0 right-0 w-full h-[500px] z-0"
+        style={{
+          background: "radial-gradient(circle at 85% 0%, rgba(245, 158, 11, 0.05), transparent 45%)",
+        }}
+      />
       <Sidebar
         unreadCount={unreadCount}
         width={sidebarWidth}
@@ -107,7 +114,7 @@ export function DashboardLayout({ children, title, subtitle, actions }: Dashboar
         onWidthChange={handleWidthChange}
         onDragStateChange={setIsDragging}
       />
-      <div className="app-content">
+      <div className="app-content relative z-10">
         <Topbar
           unreadCount={unreadCount}
           isMobile={isMobile}
@@ -119,10 +126,10 @@ export function DashboardLayout({ children, title, subtitle, actions }: Dashboar
             <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
               <div>
                 {title && (
-                  <h1 className="text-xl font-bold text-gray-900">{title}</h1>
+                  <h1 className="text-xl font-bold text-white tracking-[-0.02em]">{title}</h1>
                 )}
                 {subtitle && (
-                  <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>
+                  <p className="text-sm text-white/60 mt-0.5">{subtitle}</p>
                 )}
               </div>
               {actions && <div className="flex items-center gap-2">{actions}</div>}

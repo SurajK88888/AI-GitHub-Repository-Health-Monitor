@@ -265,3 +265,24 @@ export interface WidgetConfig {
   title: string;
   size: "sm" | "md" | "lg" | "xl";
 }
+
+
+// ── Workspace & Configurations ───────────────────────────────────────────
+
+export interface ScoringConfiguration {
+  id: string;
+  name: string;
+  is_default: boolean;
+  version: number;
+  weights: Record<string, number>;
+  created_at: string;
+}
+
+export interface Installation {
+  id: string;
+  workspace_id: string;
+  github_installation_id: number;
+  github_account_login: string;
+  account_type: string;
+  status: string;
+}

@@ -8,7 +8,7 @@ const POSITION_STORAGE_KEY = "gh_health_theme_widget_position";
 
 export function ThemeToggleWidget() {
   const [mounted, setMounted] = useState(false);
-  const [mode, setMode] = useState<ThemeMode>("light");
+  const [mode, setMode] = useState<ThemeMode>("dark");
   const [isCompact, setIsCompact] = useState(false);
 
   // Position state (null = use default top navbar placement)
@@ -56,7 +56,7 @@ export function ThemeToggleWidget() {
 
     try {
       const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) as ThemeMode | null;
-      const initialMode = savedTheme || "light";
+      const initialMode = savedTheme || "dark";
       setMode(initialMode);
       applyTheme(initialMode);
     } catch {
@@ -214,7 +214,7 @@ export function ThemeToggleWidget() {
       role="region"
       aria-label="Theme toggle widget"
     >
-      <div className="relative group bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border border-gray-200/90 dark:border-gray-800 rounded-2xl shadow-[0_8px_30px_rgba(139,92,246,0.12)] p-1.5 flex items-center gap-1.5">
+      <div className="relative group bg-[#0F171E]/80 backdrop-blur-[20px] border border-white/[0.14] rounded-full shadow-2xl p-1.5 flex items-center gap-1.5 text-white">
         
         {/* ── Drag Handle ── */}
         <div
@@ -222,7 +222,7 @@ export function ThemeToggleWidget() {
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
-          className="flex items-center px-1 cursor-grab active:cursor-grabbing text-gray-400 hover:text-brand-500 transition-colors"
+          className="flex items-center px-1 cursor-grab active:cursor-grabbing text-white/30 hover:text-white/60 transition-colors"
           title="Drag to move theme toggle anywhere on screen"
         >
           <span className="font-bold tracking-tighter text-xs leading-none">

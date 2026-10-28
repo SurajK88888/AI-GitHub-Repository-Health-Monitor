@@ -170,7 +170,7 @@ export function WidgetController() {
       role="region"
       aria-label="Widget Controller"
     >
-      <div className="relative group bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border border-gray-200/90 dark:border-gray-800 rounded-2xl shadow-[0_8px_30px_rgba(139,92,246,0.12)] p-1.5 flex items-center gap-1.5">
+      <div className="relative group bg-[#0F171E]/80 backdrop-blur-[20px] border border-white/[0.14] rounded-full shadow-2xl p-1.5 flex items-center gap-1.5 text-white">
         
         {/* ── Drag Grip ── */}
         <div
@@ -178,7 +178,7 @@ export function WidgetController() {
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
-          className="flex items-center px-1 cursor-grab active:cursor-grabbing text-gray-400 hover:text-brand-500 transition-colors"
+          className="flex items-center px-1 cursor-grab active:cursor-grabbing text-white/30 hover:text-white/60 transition-colors"
           title="Drag widget controller anywhere on screen"
         >
           <span className="font-bold tracking-tighter text-xs leading-none">
@@ -190,10 +190,10 @@ export function WidgetController() {
         <button
           onClick={() => setIsOpen((prev) => !prev)}
           className={[
-            "flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-xl transition-all",
+            "flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full transition-all",
             isOpen
-              ? "bg-brand-50 text-brand-700 dark:bg-brand-950/70 dark:text-brand-300"
-              : "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200",
+              ? "bg-white/10 text-white"
+              : "hover:bg-white/5 text-white/80",
           ].join(" ")}
           title="Open Widget Controller to manage widget visibility"
         >
@@ -205,14 +205,14 @@ export function WidgetController() {
             className={[
               "text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none",
               settings.masterEnabled
-                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300"
-                : "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400",
+                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                : "bg-white/10 text-white/60 border border-white/15",
             ].join(" ")}
           >
             {settings.masterEnabled ? `${activeCount}` : "OFF"}
           </span>
 
-          <span className="text-[9px] text-gray-400 ml-0.5">▾</span>
+          <span className="text-[9px] text-white/40 ml-0.5">▾</span>
         </button>
 
         {/* ── Dropdown / Popover ── */}
@@ -224,17 +224,17 @@ export function WidgetController() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -4, scale: 0.98 }}
               transition={{ duration: 0.15 }}
-              className="absolute left-0 top-full mt-2 w-80 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl p-4 z-50 flex flex-col gap-3"
+              className="absolute left-0 top-full mt-2 w-80 bg-[#0F161E]/95 backdrop-blur-[20px] border border-white/[0.12] rounded-2xl shadow-2xl p-4 z-50 flex flex-col gap-3 text-white"
             >
               {/* Header */}
-              <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-gray-800">
+              <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
                 <div className="flex items-center gap-2">
                   <span className="text-base">🧩</span>
                   <div>
-                    <h3 className="text-xs font-bold text-gray-900 dark:text-gray-100 tracking-tight">
+                    <h3 className="text-xs font-bold text-white tracking-tight">
                       Widget Controller
                     </h3>
-                    <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                    <p className="text-[10px] text-white/40">
                       Manage global display & individual widgets
                     </p>
                   </div>
@@ -252,27 +252,27 @@ export function WidgetController() {
                 className={[
                   "p-3 rounded-xl border transition-all flex items-center justify-between gap-3",
                   settings.masterEnabled
-                    ? "bg-brand-50/60 dark:bg-brand-950/40 border-brand-200 dark:border-brand-800/60"
-                    : "bg-gray-50 dark:bg-gray-800/60 border-gray-200 dark:border-gray-700",
+                    ? "bg-white/[0.06] border-white/[0.14]"
+                    : "bg-white/[0.02] border-white/[0.08]",
                 ].join(" ")}
               >
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
+                    <span className="text-xs font-bold text-white">
                       Master Widget Switch
                     </span>
                     <span
                       className={[
                         "text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider",
                         settings.masterEnabled
-                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                          : "bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
+                          ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                          : "bg-white/10 text-white/50 border border-white/10",
                       ].join(" ")}
                     >
                       {settings.masterEnabled ? "Enabled" : "Disabled"}
                     </span>
                   </div>
-                  <p className="text-[10.5px] text-gray-500 dark:text-gray-400 mt-0.5 leading-snug">
+                  <p className="text-[10.5px] text-white/50 mt-0.5 leading-snug">
                     Turn on/off all floating widgets across every page
                   </p>
                 </div>
@@ -285,7 +285,7 @@ export function WidgetController() {
                   onClick={() => setMasterEnabled(!settings.masterEnabled)}
                   className={[
                     "relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
-                    settings.masterEnabled ? "bg-brand-600" : "bg-gray-300 dark:bg-gray-600",
+                    settings.masterEnabled ? "bg-[#F59E0B]" : "bg-white/20",
                   ].join(" ")}
                 >
                   <span
@@ -299,7 +299,7 @@ export function WidgetController() {
 
               {/* Granular Widget List */}
               <div className="flex flex-col gap-1.5">
-                <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-0.5">
+                <span className="text-[11px] font-semibold text-white/40 uppercase tracking-wider px-0.5">
                   Individual Widgets
                 </span>
 
@@ -314,19 +314,19 @@ export function WidgetController() {
                         className={[
                           "p-2.5 rounded-xl border flex items-center justify-between gap-2.5 transition-all",
                           isDisabledByMaster
-                            ? "opacity-50 bg-gray-50 dark:bg-gray-800/30 border-gray-200/50 dark:border-gray-800"
+                            ? "opacity-40 bg-white/[0.02] border-white/[0.06]"
                             : isVisible
-                            ? "bg-white dark:bg-gray-800/80 border-gray-200 dark:border-gray-700 shadow-sm"
-                            : "bg-gray-50/70 dark:bg-gray-800/40 border-gray-200/70 dark:border-gray-700/60",
+                            ? "bg-white/[0.06] border-white/[0.14] shadow-sm"
+                            : "bg-white/[0.02] border-white/[0.06]",
                         ].join(" ")}
                       >
                         <div className="flex items-start gap-2 min-w-0">
                           <span className="text-base mt-0.5 flex-shrink-0">{widget.icon}</span>
                           <div className="min-w-0">
-                            <span className="text-xs font-semibold text-gray-900 dark:text-gray-100 block truncate">
+                            <span className="text-xs font-semibold text-white block truncate">
                               {widget.name}
                             </span>
-                            <span className="text-[10px] text-gray-500 dark:text-gray-400 block truncate leading-tight">
+                            <span className="text-[10px] text-white/45 block truncate leading-tight">
                               {widget.description}
                             </span>
                           </div>
@@ -342,10 +342,10 @@ export function WidgetController() {
                           className={[
                             "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
                             isDisabledByMaster
-                              ? "cursor-not-allowed opacity-60 bg-gray-300 dark:bg-gray-700"
+                              ? "cursor-not-allowed opacity-40 bg-white/10"
                               : isVisible
-                              ? "bg-brand-500"
-                              : "bg-gray-300 dark:bg-gray-600",
+                              ? "bg-[#F59E0B]"
+                              : "bg-white/20",
                           ].join(" ")}
                           title={`Toggle ${widget.name}`}
                         >
@@ -363,18 +363,18 @@ export function WidgetController() {
               </div>
 
               {/* Quick Actions Footer */}
-              <div className="pt-2 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between text-xs">
+              <div className="pt-2 border-t border-white/[0.08] flex items-center justify-between text-xs">
                 <div className="flex items-center gap-1.5">
                   <button
                     onClick={showAllWidgets}
-                    className="text-[10.5px] font-semibold text-brand-600 hover:text-brand-700 dark:text-brand-400 hover:underline px-1 py-0.5"
+                    className="text-[10.5px] font-semibold text-[#F59E0B] hover:text-[#F59E0B]/80 hover:underline px-1 py-0.5"
                   >
                     Show All
                   </button>
-                  <span className="text-gray-300 dark:text-gray-700">·</span>
+                  <span className="text-white/20">·</span>
                   <button
                     onClick={hideAllWidgets}
-                    className="text-[10.5px] font-semibold text-gray-500 hover:text-gray-700 dark:text-gray-400 hover:underline px-1 py-0.5"
+                    className="text-[10.5px] font-semibold text-white/50 hover:text-white hover:underline px-1 py-0.5"
                   >
                     Hide All
                   </button>
@@ -382,7 +382,7 @@ export function WidgetController() {
 
                 <button
                   onClick={resetAllPositions}
-                  className="flex items-center gap-1 text-[10.5px] font-medium text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 px-2 py-1 rounded-lg transition-colors"
+                  className="flex items-center gap-1 text-[10.5px] font-medium text-white/80 hover:text-white bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.10] px-2.5 py-1 rounded-full transition-colors cursor-pointer"
                   title="Snap all widgets back to top navbar positions"
                 >
                   <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
