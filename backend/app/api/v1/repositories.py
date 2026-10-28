@@ -8,6 +8,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from uuid import UUID
 
@@ -20,19 +21,28 @@ from app.database import get_db
 from app.enums import FindingStatus, ScoreBand
 from app.models.ai_analysis import AIAnalysis
 from app.models.finding import Finding
+from app.models.github_installation import GitHubInstallation
 from app.models.health_score import HealthScore
 from app.models.repository import Repository
 from app.models.workspace import WorkspaceMember
 from app.schemas.ai import AIAnalysisResponse
 from app.schemas.common import PaginatedResponse
 from app.schemas.repository import (
+    GenerateDescriptionResponse,
     RepositoryResponse,
     RepositoryScheduleRequest,
     RepositoryScheduleResponse,
+    UpdateDescriptionRequest,
+    UpdateDescriptionResponse,
 )
 from app.services import audit_service
+from app.services.ai.client import call_ai
 from app.services.auth import CurrentUser, get_current_user
+from app.services.github.client import GitHubClient
 from app.services.scanner.scheduler import compute_next_scheduled_scan
+from app.workers.deps import RedisClient, get_redis
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/repositories", tags=["repositories"])
 
@@ -465,4 +475,203 @@ async def update_all_repositories_schedule(
         day=body.day if body.enabled else None,
         next_scheduled_scan_at=next_scan_at,
         applied_count=len(repos),
+    )
+
+
+@router.post(
+    "/{repository_id}/generate-description",
+    response_model=GenerateDescriptionResponse,
+    summary="Generate a concise repository description using AI",
+)
+async def generate_repository_description(
+    repository_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    redis: RedisClient = Depends(get_redis),
+) -> GenerateDescriptionResponse:
+    """Safely inspect safe documentation and manifests to generate a concise repository description."""
+    if not current_user.workspace_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No workspace found.",
+        )
+    await _assert_workspace_member(db, current_user.workspace_id, current_user.user_id)
+    repo = await _get_repo_or_404(db, repository_id, current_user.workspace_id)
+
+    # Fetch installation
+    inst_res = await db.execute(
+        select(GitHubInstallation).where(GitHubInstallation.id == repo.github_installation_id)
+    )
+    installation = inst_res.scalar_one_or_none()
+    if not installation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="GitHub installation not found for repository.",
+        )
+
+    # Safe inspection: strictly read metadata and documentation files, NEVER source code files!
+    safe_files_analyzed: list[str] = []
+    metadata_context_parts: list[str] = []
+
+    # Priority safe documentation and manifest filenames
+    safe_files = [
+        "README.md",
+        "readme.md",
+        "README",
+        "package.json",
+        "pyproject.toml",
+        "Cargo.toml",
+        "go.mod",
+        "composer.json",
+        "pom.xml",
+    ]
+
+    try:
+        async with GitHubClient(
+            installation.github_installation_id,
+            redis,
+            owner=repo.owner_login,
+            repo=repo.name,
+        ) as gh:
+            for safe_filename in safe_files:
+                try:
+                    content = await gh.get_file_content(safe_filename)
+                    if content and content.strip():
+                        safe_files_analyzed.append(safe_filename)
+                        # Limit excerpt size per file for speed and prompt bounds
+                        excerpt = content.strip()[:1000]
+                        metadata_context_parts.append(f"--- File: {safe_filename} ---\n{excerpt}")
+                        if len(safe_files_analyzed) >= 3:
+                            break
+                except Exception as read_err:
+                    logger.debug("Could not fetch safe file %s: %s", safe_filename, read_err)
+                    continue
+    except Exception as exc:
+        logger.warning("Could not fetch safe metadata files for %s: %s", repo.full_name, exc)
+
+    safe_context_str = "\n\n".join(metadata_context_parts)
+
+    system_prompt = (
+        "You are an expert technical writer and open-source documentation specialist. "
+        "Your task is to generate a concise, professional, and clear GitHub repository description (maximum 160 characters) "
+        "summarizing what the project does and its core technology stack based ONLY on safe metadata and README overview.\n\n"
+        "Rules:\n"
+        "1. Strictly keep the description under 160 characters so it fits completely in GitHub's About field.\n"
+        "2. Do NOT include markdown syntax (no backticks, bold, or links).\n"
+        "3. Do NOT wrap the description in quotes.\n"
+        "4. Do NOT use emojis.\n"
+        '5. Output valid JSON in the format: {"description": "..."}'
+    )
+
+    user_prompt = f"Repository Name: {repo.name}\nFull Name: {repo.full_name}\n"
+    if safe_context_str:
+        user_prompt += f"\nSafe Metadata & Documentation:\n{safe_context_str}\n"
+    else:
+        user_prompt += "\nNo README or manifest found. Generate a clean description based on the repository name."
+
+    generated_description = ""
+    try:
+        ai_response = await call_ai(
+            system_instruction=system_prompt,
+            user_prompt=user_prompt,
+        )
+        if isinstance(ai_response, dict):
+            desc = ai_response.get("description") or ai_response.get("summary") or ""
+            generated_description = str(desc).strip()
+        elif isinstance(ai_response, str):
+            generated_description = ai_response.strip()
+    except Exception as err:
+        logger.warning("AI generation failed for repo %s: %s", repo.full_name, err)
+
+    # Clean up description
+    if generated_description:
+        generated_description = generated_description.strip("\"'` ")
+        if len(generated_description) > 160:
+            generated_description = generated_description[:157] + "..."
+    else:
+        generated_description = f"An open-source {repo.name} project."
+
+    return GenerateDescriptionResponse(
+        repository_id=repo.id,
+        repository_name=repo.name,
+        description=generated_description,
+        safe_files_analyzed=safe_files_analyzed,
+    )
+
+
+@router.put(
+    "/{repository_id}/description",
+    response_model=UpdateDescriptionResponse,
+    summary="Update repository description in database and optionally on GitHub",
+)
+async def update_repository_description(
+    repository_id: UUID,
+    body: UpdateDescriptionRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    redis: RedisClient = Depends(get_redis),
+) -> UpdateDescriptionResponse:
+    """Update the repository description in the local DB and optionally push to GitHub."""
+    if not current_user.workspace_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No workspace found.",
+        )
+    await _assert_workspace_member(db, current_user.workspace_id, current_user.user_id)
+    repo = await _get_repo_or_404(db, repository_id, current_user.workspace_id)
+
+    clean_desc = body.description.strip()
+    applied_to_github = False
+    github_error: str | None = None
+
+    if body.apply_to_github:
+        inst_res = await db.execute(
+            select(GitHubInstallation).where(GitHubInstallation.id == repo.github_installation_id)
+        )
+        installation = inst_res.scalar_one_or_none()
+        if not installation:
+            github_error = "GitHub App installation not found."
+        else:
+            try:
+                async with GitHubClient(
+                    installation.github_installation_id,
+                    redis,
+                    owner=repo.owner_login,
+                    repo=repo.name,
+                ) as gh:
+                    await gh.update_repository_description(clean_desc)
+                applied_to_github = True
+            except Exception as exc:
+                logger.warning(
+                    "GitHub API description update failed for %s: %s",
+                    repo.full_name,
+                    exc,
+                )
+                github_error = (
+                    "Could not update directly on GitHub (requires repository administration permission). "
+                    "You can still add it manually using the 'Add Manually' option."
+                )
+
+    # Save to local database
+    repo.description = clean_desc
+    await audit_service.log_event(
+        db,
+        action="REPOSITORY_DESCRIPTION_UPDATED",
+        workspace_id=current_user.workspace_id,
+        user_id=current_user.user_id,
+        resource_type="repository",
+        resource_id=str(repo.id),
+        metadata={
+            "applied_to_github": applied_to_github,
+            "github_error": github_error,
+            "description": clean_desc,
+        },
+    )
+    await db.commit()
+
+    return UpdateDescriptionResponse(
+        repository_id=repo.id,
+        description=clean_desc,
+        applied_to_github=applied_to_github,
+        github_error=github_error,
     )

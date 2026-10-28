@@ -325,7 +325,7 @@ export function ClockWidget() {
       role="region"
       aria-label="Real-time system clock widget"
     >
-      <div className="relative group bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border border-gray-200/90 dark:border-gray-800 rounded-2xl shadow-[0_8px_30px_rgba(139,92,246,0.12)] p-2.5 min-w-[240px]">
+      <div className="relative group bg-[#0F171E]/80 backdrop-blur-[20px] border border-white/[0.14] rounded-2xl shadow-2xl p-2.5 min-w-[240px] text-white">
         
         {/* ── Top Bar: Drag Handle, Status Indicator & Action Buttons ── */}
         <div
@@ -333,15 +333,15 @@ export function ClockWidget() {
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
-          className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-gray-100 dark:border-gray-800/80 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+          className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-white/[0.08] cursor-grab active:cursor-grabbing text-white/40 hover:text-white/70"
           title="Drag to move clock anywhere on screen"
         >
           {/* Left: Drag grip & Live indicator */}
           <div className="flex items-center gap-1.5">
-            <span className="text-gray-400 dark:text-gray-500 font-bold tracking-tighter text-xs px-0.5 leading-none hover:text-brand-500">
+            <span className="text-white/30 font-bold tracking-tighter text-xs px-0.5 leading-none hover:text-white/70">
               ⋮⋮
             </span>
-            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded-full border border-emerald-200/60 dark:border-emerald-800/50">
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               LIVE
             </span>
@@ -359,8 +359,8 @@ export function ClockWidget() {
               className={[
                 "px-1.5 py-0.5 text-[10px] font-bold rounded tracking-wide transition-all",
                 settings.hourFormat === "12h"
-                  ? "bg-brand-100 text-brand-700 hover:bg-brand-200 dark:bg-brand-900/50 dark:text-brand-300"
-                  : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-900/50 dark:text-indigo-300",
+                  ? "bg-white/[0.12] text-white hover:bg-white/[0.18]"
+                  : "bg-white/[0.06] text-white/70 hover:bg-white/[0.10]",
               ].join(" ")}
               title={`Click to switch to ${settings.hourFormat === "12h" ? "24-hour" : "12-hour"} format`}
             >
@@ -412,7 +412,7 @@ export function ClockWidget() {
 
           {/* AM / PM badge (for 12h format) */}
           {settings.hourFormat === "12h" && formattedTimeParts.dayPeriod && (
-            <span className="px-1.5 py-0.5 text-[11px] font-black tracking-wider text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/70 border border-brand-200/70 dark:border-brand-800 rounded-md">
+            <span className="px-1.5 py-0.5 text-[11px] font-bold tracking-wider text-white bg-white/[0.10] border border-white/[0.15] rounded-md">
               {formattedTimeParts.dayPeriod}
             </span>
           )}
@@ -430,17 +430,17 @@ export function ClockWidget() {
             >
               {/* Date line */}
               {settings.showDate && (
-                <div className="flex items-center gap-1.5 text-[11.5px] font-medium text-gray-500 dark:text-gray-400 mt-1.5 px-1">
+                <div className="flex items-center gap-1.5 text-[11.5px] font-medium text-white/50 mt-1.5 px-1">
                   <span className="opacity-70">📅</span>
                   <span>{formattedDate}</span>
                 </div>
               )}
 
               {/* Timezone pill button */}
-              <div className="mt-2 pt-1.5 border-t border-gray-100 dark:border-gray-800/80 flex items-center justify-between text-[11px]">
+              <div className="mt-2 pt-1.5 border-t border-white/[0.08] flex items-center justify-between text-[11px]">
                 <button
                   onClick={() => setShowTzPicker((v) => !v)}
-                  className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 bg-gray-50 hover:bg-brand-50 dark:bg-gray-800 dark:hover:bg-gray-700/80 px-2 py-1 rounded-lg transition-colors max-w-[200px] truncate"
+                  className="flex items-center gap-1.5 text-white/80 hover:text-white bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.10] px-2.5 py-1 rounded-full transition-colors max-w-[200px] truncate"
                   title="Change timezone"
                 >
                   <span className="text-xs">🌐</span>
@@ -482,7 +482,7 @@ export function ClockWidget() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -4, scale: 0.98 }}
               transition={{ duration: 0.12 }}
-              className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-2xl p-2.5 z-50 max-h-72 flex flex-col"
+              className="absolute left-0 right-0 top-full mt-2 bg-[#0F161E]/95 backdrop-blur-[24px] border border-white/[0.14] rounded-2xl shadow-2xl p-2.5 z-50 max-h-72 flex flex-col text-white"
             >
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-gray-100 dark:border-gray-800">
                 <span className="text-xs font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-1">

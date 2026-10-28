@@ -47,21 +47,20 @@ function SortableWidget({
       }}
     >
       <motion.div
-        className="card h-full"
+        className="card h-full bg-[#0F171E]/55 backdrop-blur-[20px] border border-white/[0.12] rounded-[24px] shadow-none overflow-hidden transition-all duration-200 hover:border-white/[0.20]"
         whileHover={{
           y: -3,
-          boxShadow: "0 12px 28px -6px rgba(139,92,246,0.14)",
         }}
         transition={{ type: "spring", stiffness: 320, damping: 30 }}
       >
         {/* Widget header */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-50">
-          <h3 className="text-sm font-semibold text-gray-700">{title}</h3>
+        <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-white/[0.07]">
+          <h3 className="text-[15px] font-medium text-white tracking-[-0.01em]">{title}</h3>
           {/* Drag handle */}
           <button
             {...listeners}
             {...attributes}
-            className="text-gray-300 hover:text-gray-400 cursor-grab active:cursor-grabbing text-base p-1 rounded transition-colors"
+            className="text-white/25 hover:text-white/60 cursor-grab active:cursor-grabbing text-base p-1 rounded transition-colors"
             title="Drag to reorder"
           >
             ⠿
@@ -83,15 +82,16 @@ function GhostWidget({ title }: { title: string }) {
   return (
     <div
       style={{
-        background: "white",
-        borderRadius: 12,
-        border: "2px dashed #ddd6fe",
+        background: "rgba(15, 23, 30, 0.65)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+        borderRadius: 24,
+        border: "2px dashed rgba(255, 255, 255, 0.25)",
         padding: "20px",
-        opacity: 0.8,
-        boxShadow: "0 20px 40px rgba(139,92,246,0.2)",
+        boxShadow: "0 20px 40px rgba(0, 0, 0, 0.4)",
       }}
     >
-      <p className="text-sm font-semibold text-brand-400">{title}</p>
+      <p className="text-[15px] font-medium text-white/80">{title}</p>
     </div>
   );
 }

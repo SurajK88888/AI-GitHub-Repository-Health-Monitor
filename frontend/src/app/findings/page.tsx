@@ -71,8 +71,8 @@ export default function FindingsPage() {
             className={cn(
               "px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-200",
               severity === s
-                ? "bg-brand-50 text-brand-700 border-brand-300 shadow-sm"
-                : "bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-800",
+                ? "bg-white text-[#090D11] border-white font-medium rounded-full shadow-sm"
+                : "bg-white/[0.04] text-white/60 border-white/[0.12] hover:bg-white/[0.08] hover:text-white rounded-full",
             )}
           >
             {s}
@@ -110,19 +110,19 @@ export default function FindingsPage() {
                     <SeverityBadge severity={f.severity} className="shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-3">
-                        <p className="text-sm font-semibold text-gray-900">{f.title}</p>
-                        <span className="shrink-0 text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md font-medium">
+                        <p className="text-sm font-medium text-white">{f.title}</p>
+                        <span className="shrink-0 text-xs text-white/70 bg-white/[0.06] border border-white/[0.10] px-2.5 py-0.5 rounded-full font-medium">
                           {f.category}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-500 mt-1 line-clamp-2">{f.description}</p>
+                      <p className="text-xs text-white/50 mt-1 line-clamp-2">{f.description}</p>
                       {f.resource && (
                         <p className="text-xs text-brand-600 mt-1.5 font-mono truncate font-medium">
                           📍 {f.resource}
                         </p>
                       )}
                       {f.evidence && (
-                        <pre className="mt-2 text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded-lg p-2.5 overflow-x-auto max-h-24">
+                        <pre className="mt-2 text-xs text-white/80 bg-black/30 border border-white/[0.08] rounded-xl p-2.5 overflow-x-auto max-h-24">
                           {typeof f.evidence === "string" ? f.evidence : JSON.stringify(f.evidence, null, 2)}
                         </pre>
                       )}

@@ -210,16 +210,16 @@ export function ScheduleButtonWithInfo({
     <div className={`relative inline-flex items-center ${className}`} ref={containerRef}>
       {/* Split Button Container: Main Action + Info Tag Trigger */}
       <div
-        className={`inline-flex items-center rounded-lg border transition-all ${isConfigured
-          ? "border-brand-200 bg-white hover:border-brand-300 shadow-2xs"
-          : "border-gray-200 bg-white hover:border-gray-300 shadow-2xs"
+        className={`inline-flex items-center rounded-full border transition-all backdrop-blur-md ${isConfigured
+          ? "border-white/[0.20] bg-white/[0.08] hover:bg-white/[0.12] hover:border-white/[0.28] shadow-sm"
+          : "border-white/[0.12] bg-white/[0.04] hover:bg-white/[0.08] hover:border-white/[0.20] shadow-sm"
           }`}
       >
         {/* Main Schedule Button */}
         <button
           type="button"
           onClick={() => onOpenScheduleModal(repository)}
-          className={`inline-flex items-center gap-1 font-semibold text-gray-700 hover:text-gray-900 transition-colors cursor-pointer ${compact
+          className={`inline-flex items-center gap-1.5 font-medium text-white/85 hover:text-white transition-colors cursor-pointer ${compact
             ? "px-2 py-1.5 text-[11.5px]"
             : size === "sm"
               ? "px-2.5 py-1.5 text-xs"
@@ -240,7 +240,7 @@ export function ScheduleButtonWithInfo({
         </button>
 
         {/* Info Tag Split Divider */}
-        <span className="w-px h-3.5 bg-gray-200 self-center" />
+        <span className="w-px h-3.5 bg-white/[0.14] self-center" />
 
         {/* Info Tag Icon Button */}
         <button
@@ -254,18 +254,18 @@ export function ScheduleButtonWithInfo({
           onMouseLeave={handleMouseLeave}
           className={`flex items-center justify-center transition-colors cursor-pointer ${compact ? "px-1.5 py-1.5" : size === "sm" ? "px-2 py-1.5" : "px-2.5 py-2"
             } ${showPopover
-              ? "bg-brand-50 text-brand-700"
+              ? "bg-white/[0.12] text-white"
               : isConfigured
-                ? "text-brand-600 hover:bg-brand-50"
-                : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                ? "text-white/80 hover:bg-white/[0.08]"
+                : "text-white/45 hover:text-white hover:bg-white/[0.06]"
             }`}
           aria-label="View schedule information"
           title="View schedule details"
         >
           <span
             className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${isConfigured
-              ? "bg-brand-100 text-brand-700"
-              : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+              ? "bg-white/[0.12] text-white border border-white/[0.20]"
+              : "bg-white/[0.06] text-white/60 border border-white/[0.10]"
               }`}
           >
             ℹ
@@ -302,19 +302,19 @@ export function ScheduleButtonWithInfo({
                   ...(coords.left !== undefined ? { left: `${coords.left}px` } : {}),
                   ...(coords.right !== undefined ? { right: `${coords.right}px` } : {}),
                 }}
-                className="w-72 max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-2xl border border-gray-200/90 p-3.5 text-left text-gray-800"
+                className="w-72 max-w-[calc(100vw-2rem)] bg-[#0F161E]/95 backdrop-blur-[24px] rounded-2xl shadow-2xl border border-white/[0.14] p-3.5 text-left text-white"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Popover Header */}
-                <div className="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-gray-100">
-                  <span className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                <div className="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-white/[0.08]">
+                  <span className="text-xs font-semibold text-white flex items-center gap-1.5">
                     <span>⏱️</span>
                     <span>Auto-Scan Schedule</span>
                   </span>
                   <span
-                    className={`px-1.5 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider ${isConfigured
-                      ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                      : "bg-gray-100 text-gray-600 border border-gray-200"
+                    className={`px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider ${isConfigured
+                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                      : "bg-white/[0.06] text-white/50 border border-white/[0.10]"
                       }`}
                   >
                     {isConfigured ? "Active" : "Not Scheduled"}
@@ -328,7 +328,7 @@ export function ScheduleButtonWithInfo({
                       <span className="text-[10px] uppercase font-bold text-gray-400 block tracking-wider">
                         Execution Frequency & Time
                       </span>
-                      <div className="font-semibold text-gray-800 mt-0.5">
+                      <div className="font-medium text-white mt-0.5">
                         {freqLabel} at {timeUtc} UTC
                       </div>
                       {localTimeStr && (
@@ -353,15 +353,15 @@ export function ScheduleButtonWithInfo({
                   </div>
                 ) : (
                   <div className="text-xs text-gray-500 space-y-1.5 py-1">
-                    <p className="font-semibold text-gray-800">Not scheduled yet</p>
-                    <p className="text-[11px] leading-relaxed text-gray-500">
+                    <p className="font-medium text-white">Not scheduled yet</p>
+                    <p className="text-[11px] leading-relaxed text-white/50">
                       AI automated scans are currently off for this repository. Click below to schedule recurring scans.
                     </p>
                   </div>
                 )}
 
                 {/* Popover Action Button */}
-                <div className="mt-3 pt-2 border-t border-gray-100 flex items-center justify-end">
+                <div className="mt-3 pt-2 border-t border-white/[0.08] flex items-center justify-end">
                   <button
                     type="button"
                     onClick={() => {
@@ -369,7 +369,7 @@ export function ScheduleButtonWithInfo({
                       setHovered(false);
                       onOpenScheduleModal(repository);
                     }}
-                    className="text-xs font-bold text-brand-600 hover:text-brand-800 transition-colors cursor-pointer flex items-center gap-1"
+                    className="text-xs font-medium text-[#F59E0B] hover:text-[#F59E0B]/80 transition-colors cursor-pointer flex items-center gap-1"
                   >
                     <span>{isConfigured ? "Edit Schedule" : "Configure Schedule"}</span>
                     <span>→</span>

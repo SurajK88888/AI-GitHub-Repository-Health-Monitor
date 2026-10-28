@@ -23,14 +23,14 @@ export function MotionCard({
 }: MotionCardProps) {
   return (
     <motion.div
-      className={cn("card relative bg-white", className)}
+      className={cn("card relative bg-[#0F171E]/55 backdrop-blur-[20px] border border-white/[0.12] rounded-[24px] text-white shadow-none hover:border-white/[0.20]", className)}
       style={{
         ...style,
         opacity: dragging ? 0.6 : 1,
       }}
       whileHover={{
         y: -3,
-        boxShadow: "0 12px 28px -6px rgba(139,92,246,0.14), 0 4px 10px -4px rgba(0,0,0,0.06)",
+        boxShadow: "0 12px 30px rgba(0, 0, 0, 0.35)",
       }}
       transition={{ type: "spring", stiffness: 320, damping: 30, mass: 0.8 }}
       onClick={onClick}

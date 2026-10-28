@@ -3,7 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { SessionProvider } from "@/components/providers/SessionProvider";
 import { AuthProvider } from "@/components/providers/AuthProvider";
-import { WidgetContainer } from "@/components/widgets";
+import { WidgetContainer, WidgetProvider } from "@/components/widgets";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -27,21 +27,23 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="dark" style={{ colorScheme: "dark" }} suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var m=localStorage.getItem('gh_health_theme_mode')||'light';var d=m==='dark'||(m==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d){document.documentElement.classList.add('dark');document.documentElement.style.colorScheme='dark';}else{document.documentElement.classList.remove('dark');document.documentElement.style.colorScheme='light';}}catch(e){}})();`,
+            __html: `(function(){try{var m=localStorage.getItem('gh_health_theme_mode')||'dark';var d=m==='dark'||(m==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d){document.documentElement.classList.add('dark');document.documentElement.style.colorScheme='dark';}else{document.documentElement.classList.remove('dark');document.documentElement.style.colorScheme='light';}}catch(e){}})();`,
           }}
         />
       </head>
       <body className={inter.className}>
         <SessionProvider>
           <AuthProvider>
-            {children}
-            <WidgetContainer />
+            <WidgetProvider>
+              {children}
+              <WidgetContainer />
+            </WidgetProvider>
           </AuthProvider>
         </SessionProvider>
       </body>

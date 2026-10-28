@@ -24,6 +24,7 @@ import { timeAgo } from "@/lib/utils";
 import { api } from "@/lib/api";
 import type { Repository, Paginated } from "@/lib/types";
 import { ScheduleScanModal, ScheduleButtonWithInfo } from "@/components/scheduler";
+import { GenerateDescriptionModal } from "@/components/repository/GenerateDescriptionModal";
 
 const stagger = {
   hidden: {},
@@ -42,6 +43,8 @@ function RepositoriesContent() {
   const [scanMsg, setScanMsg] = useState<{ id: string; msg: string } | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
+  const [selectedRepoForDescription, setSelectedRepoForDescription] = useState<Repository | null>(null);
+  const [descriptionModalOpen, setDescriptionModalOpen] = useState(false);
   const searchParams = useSearchParams();
   const autoSyncedRef = useRef(false);
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
@@ -157,7 +160,7 @@ function RepositoriesContent() {
       }
     >
       {searchParam && (
-        <div className="mb-4 px-4 py-2.5 rounded-xl bg-brand-50 border border-brand-200 text-brand-800 text-xs font-semibold flex items-center justify-between">
+        <div className="mb-4 px-4 py-2.5 rounded-full bg-white/[0.05] border border-white/[0.12] text-white text-xs font-medium flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span>🔍</span>
             <span>
@@ -166,7 +169,7 @@ function RepositoriesContent() {
           </div>
           <button
             onClick={() => router.push("/repositories")}
-            className="text-brand-600 hover:text-brand-800 font-bold ml-2 underline cursor-pointer"
+            className="text-[#F59E0B] hover:text-[#F59E0B]/80 font-medium ml-2 underline cursor-pointer"
           >
             Clear filter
           </button>
@@ -253,7 +256,7 @@ function RepositoriesContent() {
                               <span>⚠️</span> Empty Repo
                             </span>
                           )}
-                          <h2 className="text-base font-bold text-gray-900 hover:text-brand-600 transition-colors truncate">
+                          <h2 className="text-base font-bold text-white hover:text-[#F59E0B] transition-colors truncate">
                             {repo.name}
                           </h2>
                         </div>
@@ -271,17 +274,32 @@ function RepositoriesContent() {
                     )}
                   </div>
 
-                  {/* Description */}
-                  {repo.description && (
-                    <p className="text-sm text-gray-600 line-clamp-2 mb-3">
+                  {/* Description / AI Generator */}
+                  {repo.description ? (
+                    <p className="text-sm text-white/60 line-clamp-2 mb-3">
                       {repo.description}
                     </p>
+                  ) : (
+                    <div className="mb-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedRepoForDescription(repo);
+                          setDescriptionModalOpen(true);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-white/[0.05] text-[#F59E0B] hover:bg-white/[0.10] border border-white/[0.14] transition-all cursor-pointer shadow-sm group"
+                        title="Generate repository description using AI"
+                      >
+                        <span className="text-xs group-hover:scale-110 transition-transform">✨</span>
+                        <span>Generate with AI</span>
+                      </button>
+                    </div>
                   )}
 
                   {/* Meta */}
-                  <div className="flex flex-wrap gap-2 text-xs text-gray-500 mb-4">
+                  <div className="flex flex-wrap gap-2 text-xs text-white/40 mb-4">
                     {repo.language && (
-                      <span className="px-2 py-0.5 rounded-md bg-brand-50 text-brand-700 border border-brand-200 font-medium">
+                      <span className="px-2.5 py-0.5 rounded-full bg-white/[0.06] text-white/70 border border-white/[0.10] font-medium">
                         {repo.language}
                       </span>
                     )}
@@ -318,7 +336,7 @@ function RepositoriesContent() {
                   </AnimatePresence>
 
                   {/* Actions */}
-                  <div className="mt-auto flex items-center justify-between gap-1.5 pt-3 border-t border-gray-100/90 flex-wrap sm:flex-nowrap">
+                  <div className="mt-auto flex items-center justify-between gap-2 pt-3 border-t border-white/[0.08] flex-wrap sm:flex-nowrap">
                     <Button
                       variant="primary"
                       size="sm"
@@ -360,6 +378,20 @@ function RepositoriesContent() {
           repositories={repos}
           onSelectRepository={(r) => setSelectedRepoForSchedule(r)}
           onScheduleUpdated={() => {
+            refetch();
+          }}
+        />
+      )}
+
+      {selectedRepoForDescription && (
+        <GenerateDescriptionModal
+          isOpen={descriptionModalOpen}
+          onClose={() => {
+            setDescriptionModalOpen(false);
+            setSelectedRepoForDescription(null);
+          }}
+          repository={selectedRepoForDescription}
+          onDescriptionUpdated={(_repoId, _newDesc) => {
             refetch();
           }}
         />

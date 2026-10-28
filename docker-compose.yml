@@ -14,7 +14,8 @@ services:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-healthmonitor}"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 15
+      start_period: 30s
 
   redis:
     image: redis:7-alpine

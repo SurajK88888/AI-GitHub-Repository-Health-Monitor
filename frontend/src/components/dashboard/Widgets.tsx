@@ -37,15 +37,15 @@ function MetricCard({
   icon: string;
 }) {
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-card-hover transition-all flex items-center gap-4">
-      <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl flex-shrink-0 border border-purple-100/60">
+    <div className="bg-white/[0.03] border border-white/[0.08] rounded-[16px] p-5 transition-all flex items-center gap-4 hover:border-white/[0.15]">
+      <div className="w-12 h-12 rounded-[12px] bg-white/[0.05] border border-white/[0.10] text-[#F59E0B] flex items-center justify-center text-xl flex-shrink-0">
         {icon}
       </div>
       <div className="min-w-0">
-        <p className="text-3xl font-extrabold text-gray-900 tracking-tight leading-none mb-1">
+        <p className="text-[28px] font-medium text-white tracking-tight leading-none mb-1">
           {value}
         </p>
-        <p className="text-xs font-semibold text-gray-400 truncate">
+        <p className="text-xs font-normal text-white/45 truncate">
           {label}
         </p>
       </div>
@@ -115,8 +115,8 @@ export function ScoreTrendWidget() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <span className="text-xs font-semibold text-gray-400">Health progression</span>
-        <span className="text-xs font-medium text-gray-400 bg-gray-50 border border-gray-100 px-2 py-0.5 rounded-md">
+        <span className="text-xs font-normal text-white/45">Health progression</span>
+        <span className="text-xs font-medium text-white/55 bg-white/[0.05] border border-white/[0.10] px-2.5 py-0.5 rounded-full">
           {chartData ? "Across repositories" : "No scan history yet"}
         </span>
       </div>
@@ -126,39 +126,42 @@ export function ScoreTrendWidget() {
             <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
               <defs>
                 <linearGradient id="scoreGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.02} />
+                  <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#F59E0B" stopOpacity={0.0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f3f5" vertical={false} />
-              <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-              <YAxis domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.05)" vertical={false} />
+              <XAxis dataKey="date" tick={{ fontSize: 11, fill: "rgba(255, 255, 255, 0.40)" }} axisLine={false} tickLine={false} />
+              <YAxis domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} tick={{ fontSize: 11, fill: "rgba(255, 255, 255, 0.40)" }} axisLine={false} tickLine={false} />
               <Tooltip
                 contentStyle={{
-                  background: "white",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 8,
+                  background: "#0F161E",
+                  border: "1px solid rgba(255, 255, 255, 0.12)",
+                  borderRadius: 12,
                   fontSize: 12,
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
+                  color: "#FFFFFF",
+                  boxShadow: "0 8px 24px rgba(0, 0, 0, 0.4)",
                 }}
               />
               <Area
                 type="monotone"
                 dataKey="score"
-                stroke="#8b5cf6"
-                strokeWidth={3}
+                stroke="#F59E0B"
+                strokeWidth={2.5}
                 fill="url(#scoreGrad)"
-                dot={{ r: 4, fill: "#8b5cf6", stroke: "#ffffff", strokeWidth: 2 }}
-                activeDot={{ r: 6, fill: "#7c3aed" }}
+                dot={{ r: 4, fill: "#F59E0B", stroke: "#090D11", strokeWidth: 2 }}
+                activeDot={{ r: 6, fill: "#FFFFFF", stroke: "#F59E0B", strokeWidth: 2 }}
               />
             </AreaChart>
           </ResponsiveContainer>
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-10 text-center">
-          <span className="text-2xl mb-2">📊</span>
-          <p className="text-xs font-semibold text-gray-700">No score trend available</p>
-          <p className="text-2xs text-gray-400 mt-0.5">Run repository scans to generate health progression</p>
+          <div className="w-12 h-12 rounded-[14px] bg-white/[0.04] border border-white/[0.12] flex items-center justify-center text-xl mb-3">
+            📊
+          </div>
+          <p className="text-sm font-medium text-white">No score trend available</p>
+          <p className="text-xs text-white/45 mt-0.5">Run repository scans to generate health progression</p>
         </div>
       )}
     </div>
@@ -198,8 +201,8 @@ export function CriticalFindingsWidget() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-semibold text-gray-400">High priority risks</span>
-        <Link href="/findings?severity=CRITICAL" className="text-xs text-brand-600 font-semibold hover:underline">
+        <span className="text-xs font-normal text-white/45">High priority risks</span>
+        <Link href="/findings?severity=CRITICAL" className="text-xs text-[#F59E0B] font-medium hover:underline">
           View all →
         </Link>
       </div>
@@ -207,12 +210,12 @@ export function CriticalFindingsWidget() {
         {findings.map((f) => (
           <div
             key={f.id}
-            className="flex items-center justify-between gap-3 p-2.5 rounded-lg border border-gray-100 hover:bg-gray-50/70 transition-colors"
+            className="flex items-center justify-between gap-3 p-2.5 rounded-xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05] transition-colors"
           >
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-gray-800 truncate">{f.title}</p>
+              <p className="text-xs font-medium text-white truncate">{f.title}</p>
               {f.resource && (
-                <p className="text-2xs text-gray-400 font-mono truncate mt-0.5">{f.resource}</p>
+                <p className="text-2xs text-white/40 font-mono truncate mt-0.5">{f.resource}</p>
               )}
             </div>
             <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -262,16 +265,16 @@ export function TopReposWidget() {
     <div className="space-y-2">
       {repos.map((r) => (
         <Link key={r.id} href={`/repositories/${r.id}`}>
-          <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer border border-transparent hover:border-gray-100">
-            <div className="w-8 h-8 rounded-lg bg-brand-50 flex items-center justify-center text-sm flex-shrink-0">
+          <div className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/[0.04] transition-colors cursor-pointer border border-transparent hover:border-white/[0.08]">
+            <div className="w-8 h-8 rounded-lg bg-white/[0.05] border border-white/[0.10] text-[#F59E0B] flex items-center justify-center text-sm flex-shrink-0">
               ⬡
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-800 truncate">{r.name}</p>
-              <p className="text-xs text-gray-400 truncate">{r.full_name}</p>
+              <p className="text-sm font-medium text-white truncate">{r.name}</p>
+              <p className="text-xs text-white/40 truncate">{r.full_name}</p>
             </div>
             {r.language && (
-              <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+              <span className="text-xs font-medium text-white/70 bg-white/[0.06] border border-white/[0.10] px-2.5 py-0.5 rounded-full">
                 {r.language}
               </span>
             )}
@@ -295,12 +298,12 @@ export function RecentScansWidget() {
   return (
     <div className="space-y-2">
       {scans.map((s) => (
-        <div key={s.id} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-b-0">
+        <div key={s.id} className="flex items-center justify-between py-2 border-b border-white/[0.06] last:border-b-0">
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-gray-800 truncate">
+            <p className="text-sm font-medium text-white truncate">
               {s.repository_name || s.repository_id.slice(0, 8).toUpperCase()}
             </p>
-            <p className="text-xs text-gray-400">{timeAgo(s.started_at ?? s.created_at)}</p>
+            <p className="text-xs text-white/40">{timeAgo(s.started_at ?? s.created_at)}</p>
           </div>
           <ScanStatusBadge status={s.status} />
         </div>
@@ -330,17 +333,17 @@ export function NotificationsWidget() {
   return (
     <div className="space-y-2">
       {notifications.map((n) => (
-        <div key={n.id} className="flex items-start gap-2 py-1">
-          <div className="w-1.5 h-1.5 rounded-full bg-brand-500 mt-1.5 flex-shrink-0" />
+        <div key={n.id} className="flex items-start gap-2.5 py-1.5">
+          <div className="w-1.5 h-1.5 rounded-full bg-[#F59E0B] mt-2 flex-shrink-0" />
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-gray-800 truncate">{n.title}</p>
-            <p className="text-xs text-gray-400">{timeAgo(n.created_at)}</p>
+            <p className="text-sm font-medium text-white truncate">{n.title}</p>
+            <p className="text-xs text-white/40">{timeAgo(n.created_at)}</p>
           </div>
           <SeverityBadge severity={n.severity} className="flex-shrink-0 mt-0.5" />
         </div>
       ))}
       <Link href="/notifications">
-        <p className="text-xs text-brand-600 font-semibold hover:underline mt-2">View all →</p>
+        <p className="text-xs text-[#F59E0B] font-medium hover:underline mt-2">View all →</p>
       </Link>
     </div>
   );
@@ -368,11 +371,11 @@ export function QuickActionsWidget() {
     icon: string;
     color: string;
   }> = [
-    { label: "Add Repository",   href: "/repositories",   icon: "+",  color: "bg-brand-500 text-white hover:bg-brand-600" },
-    { label: "Schedule Scans",   onClick: handleOpenSchedule, icon: "⏱️", color: "bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200" },
-    { label: "View Findings",    href: "/findings",        icon: "🔍", color: "bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200" },
-    { label: "Run AI Actions",   href: "/actions",         icon: "⚡", color: "bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200" },
-    { label: "Notifications",    href: "/notifications",   icon: "🔔", color: "bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200" },
+    { label: "Add Repository",   href: "/repositories",   icon: "+",  color: "bg-white text-[#090D11] hover:bg-white/90 font-medium shadow-sm" },
+    { label: "Schedule Scans",   onClick: handleOpenSchedule, icon: "⏱️", color: "bg-white/[0.04] text-white/85 hover:bg-white/[0.08] border border-white/[0.10]" },
+    { label: "View Findings",    href: "/findings",        icon: "🔍", color: "bg-white/[0.04] text-white/85 hover:bg-white/[0.08] border border-white/[0.10]" },
+    { label: "Run AI Actions",   href: "/actions",         icon: "⚡", color: "bg-white/[0.04] text-white/85 hover:bg-white/[0.08] border border-white/[0.10]" },
+    { label: "Notifications",    href: "/notifications",   icon: "🔔", color: "bg-white/[0.04] text-white/85 hover:bg-white/[0.08] border border-white/[0.10]" },
   ];
 
   return (
@@ -381,7 +384,7 @@ export function QuickActionsWidget() {
         {actions.map((a) => {
           const content = (
             <div
-              className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold cursor-pointer ${a.color} transition-all`}
+              className={`flex items-center gap-2 px-3 py-2.5 rounded-[12px] text-sm font-medium cursor-pointer ${a.color} transition-all`}
             >
               <span>{a.icon}</span>
               <span className="text-xs">{a.label}</span>
@@ -456,24 +459,24 @@ export function ActivityFeedWidget() {
 
   return (
     <div className="relative space-y-3">
-      <div className="absolute left-3 top-2 bottom-2 w-px bg-gray-100" />
+      <div className="absolute left-3 top-2 bottom-2 w-px bg-white/[0.08]" />
       {scans.map((s) => (
         <div key={s.id} className="flex items-start gap-3 pl-1 relative">
           <div
-            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs flex-shrink-0 z-10 ${
-              s.status === "COMPLETED" ? "border-emerald-300 bg-emerald-50 text-emerald-600" :
-              s.status === "FAILED"    ? "border-red-300 bg-red-50 text-red-600" :
-              s.status === "RUNNING"   ? "border-brand-300 bg-brand-50 text-brand-600" :
-              "border-gray-200 bg-gray-50 text-gray-500"
+            className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs flex-shrink-0 z-10 ${
+              s.status === "COMPLETED" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400" :
+              s.status === "FAILED"    ? "border-rose-500/30 bg-rose-500/10 text-rose-400" :
+              s.status === "RUNNING"   ? "border-amber-500/30 bg-amber-500/10 text-amber-400" :
+              "border-white/[0.12] bg-white/[0.05] text-white/60"
             }`}
           >
             {s.status === "COMPLETED" ? "✓" : s.status === "FAILED" ? "✗" : "…"}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold text-gray-700">
+            <p className="text-xs font-medium text-white">
               Scan {s.status.toLowerCase()}
             </p>
-            <p className="text-xs text-gray-400">{timeAgo(s.started_at ?? s.created_at)}</p>
+            <p className="text-xs text-white/40">{timeAgo(s.started_at ?? s.created_at)}</p>
           </div>
           <ScanStatusBadge status={s.status} />
         </div>
